@@ -18,6 +18,8 @@ public class Event
     [MaxLength(2000)]
     public string? Description { get; set; }
 
+    public DateTimeOffset StartsAt { get; set; }
+
     public DateTimeOffset Deadline { get; set; }
 
     [MaxLength(100)]

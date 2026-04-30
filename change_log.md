@@ -6,6 +6,10 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Hotfix: add StartsAt to Event model
+
+`Event.StartsAt` (DateTimeOffset, UTC) added — the date/time the event takes place, distinct from `Deadline` (when orders close). `AddEventStartsAt` EF migration applied. `/new` form, `/created/{id}`, and `/e/{slug}` updated to capture and display the event date. `design.md` §5 data model updated.
+
 ## 2026-04-30 — Phase 2 complete: event creation
 
 - `Event` entity + EF Core 10 / SQLite + `InitialCreate` migration.

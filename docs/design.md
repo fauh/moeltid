@@ -84,6 +84,7 @@ Event
   Slug                      string         unique, URL-safe (e.g. "friday-lunch-x7q9")
   Title                     string
   Description               string         nullable
+  StartsAt                  DateTimeOffset (UTC)
   Deadline                  DateTimeOffset (UTC)
   TimeZoneId                string         IANA — owner's TZ at creation
   AllowFreeText             bool           default true
