@@ -1,5 +1,5 @@
-using FluentAssertions;
 using Moeltid.Services;
+using Shouldly;
 
 namespace Moeltid.Tests.Services;
 
@@ -13,7 +13,7 @@ public class TokenGeneratorTests
     [InlineData(32)]
     public void RandomUrlSafeString_ReturnsCorrectLength(int length)
     {
-        _sut.RandomUrlSafeString(length).Should().HaveLength(length);
+        _sut.RandomUrlSafeString(length).Length.ShouldBe(length);
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public class TokenGeneratorTests
         for (var i = 0; i < 200; i++)
         {
             var token = _sut.RandomUrlSafeString(22);
-            token.Should().MatchRegex("^[A-Za-z0-9_-]+$");
+            token.ShouldMatch("^[A-Za-z0-9_-]+$");
         }
     }
 
@@ -33,6 +33,6 @@ public class TokenGeneratorTests
             .Select(_ => _sut.RandomUrlSafeString(22))
             .ToList();
 
-        tokens.Distinct().Should().HaveCount(1000);
+        tokens.Distinct().Count().ShouldBe(1000);
     }
 }

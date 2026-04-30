@@ -1,9 +1,9 @@
-using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moeltid.Services;
 using Moeltid.Services.Email;
 using Moeltid.Services.Events;
 using Moeltid.Tests.Infrastructure;
+using Shouldly;
 
 namespace Moeltid.Tests.Services;
 
@@ -45,12 +45,12 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var ev = await _sut.CreateAsync(MakeRequest());
 
-        ev.Id.Should().NotBeEmpty();
-        ev.Title.Should().Be("Team Lunch");
-        ev.Description.Should().Be("Bring your appetite");
-        ev.OwnerName.Should().Be("Alice");
-        ev.ManageToken.Should().HaveLength(22);
-        ev.Slug.Should().MatchRegex(@"^team-lunch-[A-Za-z0-9_-]{6}$");
+        ev.Id.ShouldNotBe(Guid.Empty);
+        ev.Title.ShouldBe("Team Lunch");
+        ev.Description.ShouldBe("Bring your appetite");
+        ev.OwnerName.ShouldBe("Alice");
+        ev.ManageToken.Length.ShouldBe(22);
+        ev.Slug.ShouldMatch(@"^team-lunch-[A-Za-z0-9_-]{6}$");
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var ev = await _sut.CreateAsync(MakeRequest(ownerEmail: "Owner@Example.COM"));
 
-        ev.OwnerEmail.Should().Be("owner@example.com");
+        ev.OwnerEmail.ShouldBe("owner@example.com");
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var ev = await _sut.CreateAsync(MakeRequest(description: "  padded  "));
 
-        ev.Description.Should().Be("padded");
+        ev.Description.ShouldBe("padded");
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var ev = await _sut.CreateAsync(MakeRequest(description: null));
 
-        ev.Description.Should().BeNull();
+        ev.Description.ShouldBeNull();
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 
         var ev = await _sut.CreateAsync(request);
 
-        ev.StartsAt.Should().Be(new DateTimeOffset(2026, 6, 15, 12, 0, 0, TimeSpan.Zero));
+        ev.StartsAt.ShouldBe(new DateTimeOffset(2026, 6, 15, 12, 0, 0, TimeSpan.Zero));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 
         var ev = await _sut.CreateAsync(request);
 
-        ev.StartsAt.UtcDateTime.Should().Be(new DateTime(2026, 6, 15, 10, 0, 0));
+        ev.StartsAt.UtcDateTime.ShouldBe(new DateTime(2026, 6, 15, 10, 0, 0));
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var result = await _sut.GetByIdAsync(Guid.NewGuid());
 
-        result.Should().BeNull();
+        result.ShouldBeNull();
     }
 
     [Fact]
@@ -115,8 +115,8 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 
         var found = await _sut.GetBySlugAsync(created.Slug);
 
-        found.Should().NotBeNull();
-        found!.Id.Should().Be(created.Id);
+        found.ShouldNotBeNull();
+        found!.Id.ShouldBe(created.Id);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
     {
         var result = await _sut.GetBySlugAsync("no-such-slug-xyz");
 
-        result.Should().BeNull();
+        result.ShouldBeNull();
     }
 
     [Fact]
@@ -134,8 +134,8 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 
         var found = await _sut.GetByIdAsync(created.Id);
 
-        found.Should().NotBeNull();
-        found!.Slug.Should().Be(created.Slug);
+        found.ShouldNotBeNull();
+        found!.Slug.ShouldBe(created.Slug);
     }
 }
 
