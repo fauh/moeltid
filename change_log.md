@@ -6,6 +6,16 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Phase 1 complete: local scaffold
+
+- `git init` (fresh — cleared broken sandbox `.git/`) and baseline commit of all Phase 0 docs and config files.
+- `dotnet new blazorserver` scaffolded into `src/Moeltid/`, retargeted to `net10.0`, wired into `Moeltid.slnx`.
+- `NuGet.config` added at repo root — clears inherited machine-wide feeds (private Oresundsbron Azure DevOps feed was causing 401s) and pins to nuget.org only.
+- Build clean (`0 warnings, 0 errors`). `dotnet run` confirmed app starts on `http://localhost:5194`.
+- Two commits pushed to `https://github.com/fauh/moeltid.git` on `main`.
+- Solution format: `.slnx` (new .NET 10 XML format, not the legacy `.sln`).
+- Phase 1 closed. Phase 2 (event creation) is next — awaiting Wilhelm sign-off.
+
 ## 2026-04-30 — Project kickoff
 
 ### Scope agreed

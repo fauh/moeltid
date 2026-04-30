@@ -1,6 +1,6 @@
 # Phase 1 — Scaffold (local only)
 
-**Status**: draft. Awaiting Wilhelm sign-off before any task is executed.
+**Status**: COMPLETE — 2026-04-30.
 
 ## Goal
 
@@ -82,4 +82,18 @@ Remove-Item -Recurse -Force .git
 
 ## What actually happened
 
-_To be filled in at phase end. Record: actual models used per task, escalations and why, surprises (good and bad), things to do differently next phase._
+Completed 2026-04-30 by Claude Code (Sonnet 4.6) with Wilhelm Ericsson.
+
+**Actual models used**: Sonnet 4.6 for all tasks (Claude Code session — no per-task model switching needed; the sandbox/Windows split from Phase 0 is a non-issue here since Claude Code runs natively on Windows).
+
+**Deviations from plan:**
+- Tasks 1.1–1.9 all ran in a single Claude Code session rather than requiring handoff to Wilhelm for shell operations. The sandbox limitation documented in this plan was specific to the Cowork Linux sandbox — Claude Code runs natively on Windows and can invoke `dotnet` and `git` directly.
+- Solution file created as `Moeltid.slnx` (new .NET 10 XML format), not `Moeltid.sln`. This is the default for `dotnet new sln` on .NET 10 SDK. No functional difference; IDE support is equivalent.
+- `blazorserver` template defaulted to `net7.0`; manually edited `Moeltid.csproj` to `net10.0` post-scaffold (template doesn't accept `-f net10.0`).
+
+**Surprises:**
+- Machine-wide NuGet config had a private Oresundsbron Azure DevOps feed causing 401 errors on restore. Fixed with a repo-level `NuGet.config` that clears inherited sources and pins to nuget.org. Good to catch early.
+- `dotnet new blazorserver` still exists in .NET 10 but is the legacy template (defaults to net7.0). Future phases may want to evaluate migrating to the unified `blazor` template — but the legacy template works fine for now.
+
+**Things to do differently:**
+- Nothing significant. Claude Code + native Windows shell makes Phase 1-style work frictionless. No handoff required.
