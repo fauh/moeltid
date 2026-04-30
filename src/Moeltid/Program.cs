@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Moeltid.Data;
 using Moeltid.Services;
+using Moeltid.Services.Email;
+using Moeltid.Services.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +14,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddSingleton<TokenGenerator>();
 builder.Services.AddSingleton<SlugGenerator>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 
 var app = builder.Build();
 

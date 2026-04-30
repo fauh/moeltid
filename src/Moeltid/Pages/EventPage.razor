@@ -1,9 +1,8 @@
 @page "/e/{Slug}"
-@using Moeltid.Data
 @using Moeltid.Models
-@using Microsoft.EntityFrameworkCore
+@using Moeltid.Services.Events
 @using static Moeltid.Services.TimeZoneHelper
-@inject AppDbContext Db
+@inject IEventService EventService
 
 <PageTitle>@(ev?.Title ?? "Event") — Consid Måltid</PageTitle>
 
@@ -46,7 +45,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        ev = await Db.Events.FirstOrDefaultAsync(e => e.Slug == Slug);
+        ev = await EventService.GetBySlugAsync(Slug);
         notFound = ev is null;
     }
 }
