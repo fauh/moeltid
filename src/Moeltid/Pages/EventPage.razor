@@ -1,0 +1,48 @@
+@page "/e/{Slug}"
+@using Moeltid.Data
+@using Moeltid.Models
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+<PageTitle>@(ev?.Title ?? "Event") — Consid Måltid</PageTitle>
+
+@if (notFound)
+{
+    <h1>Event not found</h1>
+    <p>This event link doesn't exist or may have been removed.</p>
+    <a href="/" class="btn btn-outline-secondary">Back to home</a>
+}
+else if (ev is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <h1>@ev.Title</h1>
+
+    @if (!string.IsNullOrEmpty(ev.Description))
+    {
+        <p class="lead">@ev.Description</p>
+    }
+
+    <p class="text-muted">
+        Order deadline: <strong>@ev.Deadline.ToString("f")</strong>
+    </p>
+
+    <div class="alert alert-info mt-4">
+        Attendee sign-up and meal ordering is coming in Phase 3.
+    </div>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private Event? ev;
+    private bool notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ev = await Db.Events.FirstOrDefaultAsync(e => e.Slug == Slug);
+        notFound = ev is null;
+    }
+}

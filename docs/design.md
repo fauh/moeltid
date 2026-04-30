@@ -196,7 +196,7 @@ Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at 
 - **Order multiplicity**: one order per attendee per event; multi-item needs go in free text.
 
 ### Still open
-- [ ] **Slug format** — *working assumption*: `{kebab-title}-{6-char-random}`, falling back to `event-{6-char-random}` for empty/long titles. **Confirm before Phase 2.**
+- [x] **Slug format** — confirmed 2026-04-30: `{kebab-title}-{6-char-random}`, falling back to `event-{6-char-random}` for empty/long titles.
 - [ ] **Attendee email — required?** *Working assumption*: optional. Required would enable cross-device edits for everyone but lose anonymous quick-order. **Confirm before Phase 3.**
 - [ ] **Reminder email content & audience** — to all attendees, or only those without an order yet? *Working assumption*: all attendees who provided email, with a "you have/haven't ordered yet" line. **Confirm before Phase 5.**
 - [ ] **Reminder vs. deadline guard** — should the UI prevent reminders scheduled after the deadline? *Working assumption*: yes. **Confirm before Phase 5.**

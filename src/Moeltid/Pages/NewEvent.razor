@@ -1,0 +1,177 @@
+@page "/new"
+@using Moeltid.Data
+@using Moeltid.Models
+@using Moeltid.Services
+@inject AppDbContext Db
+@inject SlugGenerator SlugGen
+@inject TokenGenerator TokenGen
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>New event — Consid Måltid</PageTitle>
+
+<h1>Create an event</h1>
+
+<EditForm Model="@model" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label" for="title">Event title <span class="text-danger">*</span></label>
+        <InputText id="title" class="form-control" @bind-Value="model.Title" placeholder="e.g. Friday lunch" />
+        <ValidationMessage For="@(() => model.Title)" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="description">Description</label>
+        <InputTextArea id="description" class="form-control" @bind-Value="model.Description" rows="3"
+            placeholder="Optional details about the event" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="deadline">Order deadline <span class="text-danger">*</span></label>
+        <InputDate id="deadline" class="form-control" Type="InputDateType.DateTimeLocal"
+            @bind-Value="model.Deadline" />
+        <ValidationMessage For="@(() => model.Deadline)" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="timezone">Your time zone</label>
+        <input id="timezone" class="form-control" type="text" value="@model.TimeZoneId" readonly
+            title="Detected from your browser" />
+        <div class="form-text">Detected from your browser. Deadlines will be shown in this time zone.</div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="ownerName">Your name <span class="text-danger">*</span></label>
+        <InputText id="ownerName" class="form-control" @bind-Value="model.OwnerName" />
+        <ValidationMessage For="@(() => model.OwnerName)" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="ownerEmail">Your email <span class="text-danger">*</span></label>
+        <InputText id="ownerEmail" class="form-control" @bind-Value="model.OwnerEmail" type="email"
+            placeholder="The manage link will be emailed here" />
+        <ValidationMessage For="@(() => model.OwnerEmail)" />
+    </div>
+
+    <div class="mb-3 form-check">
+        <InputCheckbox id="allowFreeText" class="form-check-input" @bind-Value="model.AllowFreeText" />
+        <label class="form-check-label" for="allowFreeText">Allow free-text meal orders</label>
+        <div class="form-text">When enabled, attendees can type their own order instead of choosing a preset.</div>
+    </div>
+
+    <div class="mb-3 form-check">
+        <InputCheckbox id="attendeeOrdersVisible" class="form-check-input" @bind-Value="model.AttendeeOrdersVisible" />
+        <label class="form-check-label" for="attendeeOrdersVisible">Show all orders to attendees</label>
+        <div class="form-text">When enabled, attendees can see each other's names and orders on the event page.</div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+        @(isSubmitting ? "Creating…" : "Create event")
+    </button>
+</EditForm>
+
+@code {
+    private readonly FormModel model = new();
+    private string? errorMessage;
+    private bool isSubmitting;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var tz = await JS.InvokeAsync<string>("eval", "Intl.DateTimeFormat().resolvedOptions().timeZone");
+            if (!string.IsNullOrWhiteSpace(tz))
+                model.TimeZoneId = tz;
+        }
+        catch
+        {
+            // JS interop can fail during prerender — fallback is already set
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        const int maxAttempts = 3;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                var ev = new Event
+                {
+                    Id = Guid.NewGuid(),
+                    Slug = SlugGen.Generate(model.Title),
+                    Title = model.Title,
+                    Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim(),
+                    Deadline = new DateTimeOffset(model.Deadline, TimeSpan.Zero),
+                    TimeZoneId = model.TimeZoneId,
+                    AllowFreeText = model.AllowFreeText,
+                    AttendeeOrdersVisible = model.AttendeeOrdersVisible,
+                    OwnerName = model.OwnerName.Trim(),
+                    OwnerEmail = model.OwnerEmail.Trim().ToLowerInvariant(),
+                    ManageToken = TokenGen.RandomUrlSafeString(22),
+                    CreatedAt = DateTimeOffset.UtcNow,
+                };
+
+                Db.Events.Add(ev);
+                await Db.SaveChangesAsync();
+
+                Nav.NavigateTo($"/created/{ev.Id}");
+                return;
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+                when (ex.InnerException?.Message.Contains("UNIQUE") == true && attempt < maxAttempts - 1)
+            {
+                // Slug collision — retry with a fresh slug
+                Db.ChangeTracker.Clear();
+            }
+            catch
+            {
+                errorMessage = "Something went wrong. Please try again.";
+                isSubmitting = false;
+                return;
+            }
+        }
+
+        errorMessage = "Could not generate a unique event URL. Please try again.";
+        isSubmitting = false;
+    }
+
+    private sealed class FormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Title is required.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string Title { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.MaxLength(2000)]
+        public string? Description { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Deadline is required.")]
+        public DateTime Deadline { get; set; } = DateTime.Today.AddDays(7);
+
+        public string TimeZoneId { get; set; } = "Europe/Stockholm";
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Your name is required.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string OwnerName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Your email is required.")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(200)]
+        public string OwnerEmail { get; set; } = string.Empty;
+
+        public bool AllowFreeText { get; set; } = true;
+        public bool AttendeeOrdersVisible { get; set; } = true;
+    }
+}

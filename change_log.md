@@ -6,6 +6,19 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Phase 2 complete: event creation
+
+- `Event` entity + EF Core 10 / SQLite + `InitialCreate` migration.
+- `SlugGenerator` (`{kebab-title}-{6-char-random}`, fallback `event-{6-char-random}`) and `TokenGenerator` (22-char URL-safe random) added as singleton services.
+- `/new` form: title, description, deadline, owner name + email, TZ (JS-detected via `Intl.DateTimeFormat`, defaulting to `Europe/Stockholm`), free-text and visibility toggles.
+- Submit handler: persists event, retries up to 3× on slug collision, redirects to `/created/{id}`.
+- `/created/{id}` success page: displays manage URL prominently + `Console.WriteLine` stub for email (real send in Phase 5).
+- `/e/{slug}` placeholder page: renders event title + description.
+- `dotnet-ef` global tool updated from v9 to v10.0.7 to match EF Core packages.
+- Template cruft removed (Counter, FetchData, WeatherForecast, SurveyPrompt).
+- Slug format confirmed: `{kebab-title}-{6-char-random}`. Resolved in `design.md` §9.
+- Phase 2 closed. Phase 3 (attendee signup and meal ordering) is next — awaiting Wilhelm sign-off.
+
 ## 2026-04-30 — Phase 1 complete: local scaffold
 
 - `git init` (fresh — cleared broken sandbox `.git/`) and baseline commit of all Phase 0 docs and config files.

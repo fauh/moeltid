@@ -1,0 +1,54 @@
+@page "/created/{EventId:guid}"
+@using Moeltid.Data
+@using Moeltid.Models
+@inject AppDbContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Event created — Consid Måltid</PageTitle>
+
+@if (ev is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <h1>Event created!</h1>
+
+    <div class="alert alert-success">
+        <h4 class="alert-heading">Save your manage link</h4>
+        <p>This is the only way to edit your event and view orders. It was also emailed to <strong>@ev.OwnerEmail</strong>.</p>
+        <hr />
+        <p class="mb-0 fw-bold text-break">
+            <a href="@ManageUrl">@ManageUrl</a>
+        </p>
+    </div>
+
+    <h2 class="mt-4">@ev.Title</h2>
+    @if (!string.IsNullOrEmpty(ev.Description))
+    {
+        <p>@ev.Description</p>
+    }
+    <p>
+        <strong>Public event URL:</strong><br />
+        <a href="/e/@ev.Slug">/e/@ev.Slug</a>
+    </p>
+    <p class="text-muted">Share the public URL with attendees. Share the manage link only with people you want to co-administer this event.</p>
+}
+
+@code {
+    [Parameter] public Guid EventId { get; set; }
+
+    private Event? ev;
+    private string ManageUrl => ev is null ? string.Empty
+        : Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ev = await Db.Events.FindAsync(EventId);
+
+        if (ev is not null)
+        {
+            Console.WriteLine($"[EMAIL STUB] Manage link for '{ev.Title}' → {ManageUrl}");
+        }
+    }
+}
