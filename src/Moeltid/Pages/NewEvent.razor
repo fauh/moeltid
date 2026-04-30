@@ -167,10 +167,10 @@
         public string? Description { get; set; }
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Event date is required.")]
-        public DateTime StartsAt { get; set; } = DateTime.Today.AddDays(7);
+        public DateTime StartsAt { get; set; } = DateTime.Today.AddDays(7).AddHours(12);
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Deadline is required.")]
-        public DateTime Deadline { get; set; } = DateTime.Today.AddDays(6);
+        public DateTime Deadline { get; set; } = DateTime.Today.AddDays(6).AddHours(12);
 
         public string TimeZoneId { get; set; } = "Europe/Stockholm";
 
