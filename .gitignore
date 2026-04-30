@@ -1,0 +1,76 @@
+# .NET
+bin/
+obj/
+out/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.pidb
+*.dbmdl
+*.jfm
+*.svclog
+*.scc
+
+# Build output
+[Dd]ebug/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+artifacts/
+publish/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test output
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+coverage/
+*.coverage
+*.coveragexml
+
+# EF / SQLite local db
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Secrets and env
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.local
+secrets.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Claude Code local settings
+.claude/

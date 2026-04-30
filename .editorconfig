@@ -1,0 +1,36 @@
+# Top-most EditorConfig file.
+root = true
+
+# Defaults for everything.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# Markdown trims whitespace differently — trailing spaces are line breaks.
+[*.{md,markdown}]
+trim_trailing_whitespace = false
+
+# Two-space conventions for config formats.
+[*.{yml,yaml,json,csproj,props,targets}]
+indent_size = 2
+
+# Solution files are Windows-line-ending by tooling convention.
+[*.sln]
+end_of_line = crlf
+indent_style = tab
+
+# C# / Razor — keep modest defaults; can be expanded with style rules later.
+[*.{cs,razor,cshtml}]
+indent_size = 4
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_prefer_braces = true:suggestion
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion

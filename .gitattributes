@@ -1,0 +1,31 @@
+# Auto-detect text files and normalize line endings on commit.
+# Files checked out on Windows get CRLF; on Linux/macOS get LF.
+* text=auto
+
+# Force CRLF for Windows-specific files even on non-Windows checkouts.
+*.sln text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Force LF for shell scripts and Linux-specific files.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+
+# Treat as binary (no diff, no normalization).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.dll binary
+*.exe binary
+*.snk binary
+
+# Better diffs.
+*.cs text diff=csharp
+*.razor text diff=html
+*.cshtml text diff=html
