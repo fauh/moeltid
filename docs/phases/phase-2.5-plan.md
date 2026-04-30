@@ -48,9 +48,9 @@ A working `IEventService` + `EventService` with the existing Razor pages refacto
 
 ## Open questions for this phase
 
-- [ ] **Should `IEventService` be the only abstraction, or should we also introduce a `Result<T>` / `OneOf<>` pattern for failures (collision exhausted, validation, etc.)?** *Working assumption*: throw exceptions for now; introduce `Result<T>` only if we find ourselves overloading exceptions for control flow. **Confirm at kickoff.**
-- [ ] **Should `EventService` own the email-stub `Console.WriteLine`, or should we introduce an `IEmailSender` stub now in anticipation of Phase 5?** *Working assumption*: introduce `IEmailSender` with a `ConsoleEmailSender` implementation now — it's a 30-line investment that lets Phase 5 swap in a real provider with one DI line. **Confirm at kickoff.**
-- [ ] **Test naming convention** — `MethodName_Scenario_ExpectedOutcome` (Microsoft house style) or `Should_ExpectedOutcome_When_Scenario` (BDD style)? *Working assumption*: Microsoft house style for consistency with .NET ecosystem norms. **Confirm at kickoff.**
+- [x] **Exceptions vs `Result<T>`** — confirmed: throw exceptions for now. Introduce `Result<T>` only if exceptions are overloaded for control flow.
+- [x] **`IEmailSender` stub** — confirmed: introduce `IEmailSender` + `ConsoleEmailSender` now. Makes Phase 5 a one-DI-line swap.
+- [x] **Test naming convention** — confirmed: `MethodName_Scenario_ExpectedOutcome` (Microsoft house style).
 
 ## Risks / what might bite
 

@@ -2,6 +2,7 @@
 @using Moeltid.Data
 @using Moeltid.Models
 @using Moeltid.Services
+@using static Moeltid.Services.TimeZoneHelper
 @inject AppDbContext Db
 @inject SlugGenerator SlugGen
 @inject TokenGenerator TokenGen
@@ -122,8 +123,8 @@
                     Slug = SlugGen.Generate(model.Title),
                     Title = model.Title,
                     Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim(),
-                    StartsAt = new DateTimeOffset(model.StartsAt, TimeSpan.Zero),
-                    Deadline = new DateTimeOffset(model.Deadline, TimeSpan.Zero),
+                    StartsAt = ToUtc(model.StartsAt, model.TimeZoneId),
+                    Deadline = ToUtc(model.Deadline, model.TimeZoneId),
                     TimeZoneId = model.TimeZoneId,
                     AllowFreeText = model.AllowFreeText,
                     AttendeeOrdersVisible = model.AttendeeOrdersVisible,
@@ -157,7 +158,7 @@
         isSubmitting = false;
     }
 
-    private sealed class FormModel
+    private sealed class FormModel : System.ComponentModel.DataAnnotations.IValidatableObject
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Title is required.")]
         [System.ComponentModel.DataAnnotations.MaxLength(200)]
@@ -185,5 +186,14 @@
 
         public bool AllowFreeText { get; set; } = true;
         public bool AttendeeOrdersVisible { get; set; } = true;
+
+        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(
+            System.ComponentModel.DataAnnotations.ValidationContext context)
+        {
+            if (Deadline >= StartsAt)
+                yield return new System.ComponentModel.DataAnnotations.ValidationResult(
+                    "Order deadline must be before the event date.",
+                    [nameof(Deadline)]);
+        }
     }
 }

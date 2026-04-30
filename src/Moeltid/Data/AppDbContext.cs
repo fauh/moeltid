@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Slug).IsUnique();
+            e.HasIndex(x => x.ManageToken).IsUnique();
             e.Property(x => x.OwnerEmail)
                 .HasConversion(v => v.ToLowerInvariant(), v => v);
         });

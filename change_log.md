@@ -6,6 +6,14 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Phase 2 follow-up bugfixes (tasks 2.14–2.18)
+
+- **TZ conversion fix (🔴)**: `StartsAt`/`Deadline` are now correctly converted from wall-clock local time to UTC using `TimeZoneHelper.ToUtc(wallClock, ianaId)`, which calls `TimeZoneInfo.ConvertTimeToUtc` with `DateTimeKind.Unspecified`. Previously stored with `TimeSpan.Zero`, claiming UTC when they were actually local time.
+- **TZ display fix**: `EventCreated.razor` and `EventPage.razor` now render datetimes via `TimeZoneHelper.ToLocalString(utc, ianaId)` instead of `.ToString("f")` directly — values are correctly converted back through `Event.TimeZoneId` before display.
+- **Deadline validation**: `FormModel` implements `IValidatableObject`; form rejects submission when `Deadline >= StartsAt`.
+- **Unique index on `ManageToken`**: Added to `AppDbContext.OnModelCreating`; `AddUniqueIndexOnManageToken` migration applied.
+- `TimeZoneHelper` static class introduced in `Services/` — shared TZ conversion logic for both input and display paths.
+
 ## 2026-04-30 — Two-tool review pattern formalised in `process.md`
 
 The Phase 2 retrospective surfaced a process insight: "phase complete" is best treated as Code's POV; Cowork should do a read-through review pass before the phase is truly closed. Formalised as a new section in `process.md` ("Phase exit — the two-tool review pattern"). Five steps: Code closes → Cowork reviews → findings land as a peer subsection in the retro → actionable items become follow-up tasks numbered `N.X` → phase truly closes after follow-ups merge.

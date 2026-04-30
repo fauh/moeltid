@@ -1,6 +1,7 @@
 @page "/created/{EventId:guid}"
 @using Moeltid.Data
 @using Moeltid.Models
+@using static Moeltid.Services.TimeZoneHelper
 @inject AppDbContext Db
 @inject NavigationManager Nav
 
@@ -28,7 +29,7 @@ else
     {
         <p>@ev.Description</p>
     }
-    <p><strong>Event date:</strong> @ev.StartsAt.ToString("f")</p>
+    <p><strong>Event date:</strong> @ToLocalString(ev.StartsAt, ev.TimeZoneId)</p>
     <p>
         <strong>Public event URL:</strong><br />
         <a href="/e/@ev.Slug">/e/@ev.Slug</a>
