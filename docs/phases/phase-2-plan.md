@@ -46,8 +46,15 @@ Completed 2026-04-30 by Claude Code (Sonnet 4.6) with Wilhelm Ericsson.
 - CA1716 warning on `Event` class name (reserved keyword in VB/F#) — suppressed with `#pragma warning disable` since the domain name is mandated by the design and this is a C#-only project.
 - CA1805 warning (`IsClosed = false` redundant) — fixed by removing the explicit initialiser.
 
+**Post-plan fixes (caught during review):**
+- `Event.StartsAt` (DateTimeOffset) added — the event date/time was missing from the original model. `AddEventStartsAt` migration applied; form, success page, and event page updated. `design.md` §5 updated.
+- Datetime picker defaults changed from `00:00` (midnight) to `12:00` (noon) — midnight is not a sensible default for a meal event.
+- TZ fallback changed from `Europe/Stockholm` to `UTC` — JS interop already detects the browser's local TZ; the hardcoded country default was wrong for non-Swedish users.
+- Branch/PR convention established: `phase-N` branches from Phase 3 onwards, PR per phase. Added to `process.md`.
+
 **Surprises:**
 - None significant. The auto-migrate-on-startup pattern worked cleanly; the slug collision retry loop was straightforward.
 
 **Things to do differently:**
-- Nothing significant.
+- Review the data model against the form fields before writing code — `StartsAt` would have been caught at planning time.
+- Establish branch convention before starting, not after.
