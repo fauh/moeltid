@@ -109,7 +109,7 @@ Tests live in `tests/Moeltid.Tests/`. The stack is:
 | Concern | Choice | Why |
 |---|---|---|
 | Framework | **xUnit** | Standard for .NET; fits the phase plan's testing approach. |
-| Assertions | **FluentAssertions v8** | Readable failure messages; no trade-off on fidelity. |
+| Assertions | **Shouldly** | MIT-licensed; readable failure messages; direct swap for FluentAssertions. (FluentAssertions v8 changed to a commercial-license model mid-project — replaced at Phase 2.5 close.) |
 | DB for service tests | **SQLite in-memory** (`Data Source=:memory:`) | Higher fidelity than EF in-memory provider (enforces constraints, runs migrations); negligible perf cost. One `SqliteConnection` kept open per test class via `InMemoryDatabaseFixture : IAsyncLifetime`. |
 
 Test naming follows **Microsoft house style**: `MethodName_Scenario_ExpectedOutcome` — e.g. `CreateAsync_ValidRequest_LowerCasesOwnerEmail`. The `CA1707` analyzer warning (underscores in member names) is expected for test files; suppress at the project level if needed.

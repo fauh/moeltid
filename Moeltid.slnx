@@ -1,4 +1,20 @@
 <Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/design.md" />
+    <File Path="docs/process.md" />
+    <File Path="docs/roadmap.md" />
+  </Folder>
+  <Folder Name="/docs/phases/">
+    <File Path="docs/phases/phase-0-plan.md" />
+    <File Path="docs/phases/phase-1-plan.md" />
+    <File Path="docs/phases/phase-2-plan.md" />
+    <File Path="docs/phases/phase-2.5-plan.md" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="docs/design.md" />
+    <File Path="docs/process.md" />
+    <File Path="docs/roadmap.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Moeltid/Moeltid.csproj" />
   </Folder>

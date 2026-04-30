@@ -6,13 +6,21 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-01 — Phase 2.5 closed: Shouldly migration + retrospective
+
+- **FluentAssertions replaced with Shouldly** across `tests/Moeltid.Tests/`. FluentAssertions v8 changed to a commercial-license model (free for non-commercial only); Shouldly (MIT) is a direct substitute. All 22 tests ported and passing. `Moeltid.Tests.csproj` now references `Shouldly 4.3.0`.
+- `process.md` testing conventions updated: Assertions row now reads Shouldly; rationale for the swap recorded.
+- `roadmap.md` Phase 2.5 checkboxes ticked; FluentAssertions reference corrected to Shouldly.
+- Phase 2.5 retrospective filled in `phase-2.5-plan.md`. Phase status set to COMPLETE.
+- Phase 3 (attendee signup and meal ordering) is next — awaiting Wilhelm sign-off.
+
 ## 2026-04-30 — Phase 2.5 complete: service layer and tests
 
 - **`IEventService` / `EventService`** extracted from Razor pages. `EventService` owns slug generation, 3-attempt collision retry, TZ→UTC conversion via `TimeZoneHelper`, and email stub dispatch via `IEmailSender`.
 - **`IEmailSender` / `ConsoleEmailSender`** stub introduced. Phase 5 swaps in a real provider with one DI line.
-- **`tests/Moeltid.Tests`** project added (xUnit + FluentAssertions v8 + SQLite in-memory). `InMemoryDatabaseFixture : IAsyncLifetime` opens one `SqliteConnection("Data Source=:memory:")` per test class, runs migrations once, and exposes `CreateDbContext()`.
+- **`tests/Moeltid.Tests`** project added (xUnit + Shouldly + SQLite in-memory). `InMemoryDatabaseFixture : IAsyncLifetime` opens one `SqliteConnection("Data Source=:memory:")` per test class, runs migrations once, and exposes `CreateDbContext()`.
 - **22 tests passing** across `TokenGeneratorTests` (3), `SlugGeneratorTests` (7), and `EventServiceTests` (10). Stockholm-summer TZ conversion test confirms 12:00 local → 10:00 UTC.
-- `design.md` §4 gains a "Service layer" subsection. `process.md` gains a "Testing conventions" section (xUnit, FluentAssertions, SQLite in-memory, Microsoft house-style test naming). `CA1707` (underscores in method names) is the expected analyzer noise for the `Method_Scenario_Expected` naming convention.
+- `design.md` §4 gains a "Service layer" subsection. `process.md` gains a "Testing conventions" section (xUnit, Shouldly, SQLite in-memory, Microsoft house-style test naming). `CA1707` (underscores in method names) is the expected analyzer noise for the `Method_Scenario_Expected` naming convention.
 - Phase 2.5 closed. Phase 3 (attendee signup and meal ordering) is next — awaiting Wilhelm sign-off.
 
 ## 2026-04-30 — Phase 2 follow-up bugfixes (tasks 2.14–2.18)

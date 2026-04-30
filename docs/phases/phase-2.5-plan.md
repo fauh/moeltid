@@ -1,6 +1,6 @@
 # Phase 2.5 — Service layer and tests
 
-**Status**: draft. Awaiting Wilhelm sign-off before any task is executed.
+**Status**: COMPLETE — 2026-05-01.
 
 ## Why this phase exists
 
@@ -69,4 +69,21 @@ A working `IEventService` + `EventService` with the existing Razor pages refacto
 
 ## What actually happened
 
-_To be filled in at phase end._
+Completed 2026-04-30 (service layer + tests) and 2026-05-01 (Shouldly migration) by GitHub Copilot with Wilhelm Ericsson.
+
+**Actual models used**: GitHub Copilot (VS-integrated) for all tasks in this session — Copilot picked up the project mid-stream from the prior Claude Code session and completed the remaining work.
+
+**Deviations from plan:**
+- Tasks 2.5.1–2.5.10 were already complete when this session opened (done in the preceding Claude Code session). The remaining task was 2.5.11 (retrospective + doc updates) plus the Shouldly migration below.
+- **FluentAssertions replaced with Shouldly.** The phase plan specified FluentAssertions; that library changed to a commercial-license model (free for non-commercial only). Shouldly (MIT) is a direct substitute with equivalent readability. All 22 tests were ported in the same session as this retrospective. `process.md` and future phase plans updated to reflect the swap.
+- **`design.md` §4 "Service layer" subsection** was already present, having been written during the earlier Code session.
+
+**Surprises:**
+- FluentAssertions v8 emits a license-warning banner to test output on every run. Caught during the hand-off review — straightforward swap to Shouldly before closing the phase.
+
+**Things to do differently:**
+- Nothing significant. Copilot's VS-integrated tooling (run tests, replace in files) made the Shouldly migration mechanical and verifiable in one pass.
+
+**Post-completion review findings:**
+
+No Cowork review was conducted for this phase (tooling context not available). The main correctness risk — TZ conversion — was already covered by the `CreateAsync_StockholmSummerTimeZone_ConvertsStartsAtToUtc` test, which passes. All 22 tests green. No follow-up tasks raised.
