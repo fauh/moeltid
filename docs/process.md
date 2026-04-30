@@ -9,6 +9,17 @@ This document is the meta-layer: how Claude and Wilhelm collaborate on Consid M�
 - **Living docs.** `design.md` and `roadmap.md` are revised as the project learns. The change log preserves the history of those revisions.
 - **Working assumptions are explicit.** When Claude makes a call without confirmation, it's flagged as a "working assumption" in `design.md` §9 with a confirm-before-Phase-N stamp.
 
+## Branch and PR convention
+
+All feature work happens on a dedicated branch; `main` is the stable, reviewed base.
+
+- **Branch naming**: `phase-N` for phase work (e.g. `phase-3`), `fix/short-description` for hotfixes, `chore/short-description` for non-functional changes.
+- **One PR per phase** (or per meaningful logical unit). Open the PR when the phase is ready for review; merge after Wilhelm signs off.
+- **`main` is never committed to directly** for new work. Hotfixes that are truly trivial (single-line, no risk) may be committed directly with agreement.
+- Claude prepares the branch, commits, and opens the PR. Wilhelm reviews and merges (or asks Claude to address feedback first).
+
+This convention was adopted from Phase 3 onwards (Phase 0–2 committed directly to `main` before the convention existed).
+
 ## Model selection
 
 Claude has three models available, each suited to different work. Each task has a planned model, picked deliberately and recorded in the per-phase plan.

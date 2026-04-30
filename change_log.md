@@ -6,6 +6,11 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Process and TZ fixes
+
+- Branch/PR convention added to `process.md`: feature work on `phase-N` or `fix/*` branches; one PR per phase; `main` not committed to directly. Adopted from Phase 3 onwards.
+- Timezone fallback changed from `Europe/Stockholm` to `UTC` — the JS interop already detects the browser's local TZ; the fallback only shows if JS fails, so `UTC` is more honest and neutral. `design.md` §8 updated.
+
 ## 2026-04-30 — Hotfix: add StartsAt to Event model
 
 `Event.StartsAt` (DateTimeOffset, UTC) added — the date/time the event takes place, distinct from `Deadline` (when orders close). `AddEventStartsAt` EF migration applied. `/new` form, `/created/{id}`, and `/e/{slug}` updated to capture and display the event date. `design.md` §5 data model updated.

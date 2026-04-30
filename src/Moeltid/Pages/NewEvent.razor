@@ -101,7 +101,7 @@
         }
         catch
         {
-            // JS interop can fail during prerender — fallback is already set
+            // JS interop can fail during prerender — UTC fallback stays
         }
         StateHasChanged();
     }
@@ -172,7 +172,7 @@
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Deadline is required.")]
         public DateTime Deadline { get; set; } = DateTime.Today.AddDays(6).AddHours(12);
 
-        public string TimeZoneId { get; set; } = "Europe/Stockholm";
+        public string TimeZoneId { get; set; } = "UTC";
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Your name is required.")]
         [System.ComponentModel.DataAnnotations.MaxLength(200)]

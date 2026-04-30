@@ -173,7 +173,7 @@ The app uses no authentication system. Identity is carried by tokens in URLs and
 - If accounts are ever wanted (e.g. for "my events" history across devices), they can be added as an additive layer linking events/attendances by email — non-disruptive change.
 
 ### Time zones
-Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at creation from the browser, defaulting to `Europe/Stockholm` if detection fails. The manage page renders datetimes in this owner TZ. The public event page renders in the visiting attendee's browser TZ. Linux containers need IANA tzdata available — Microsoft's .NET base images ship it; we'll verify in Phase 1.
+Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at creation from the browser via JS interop (`Intl.DateTimeFormat().resolvedOptions().timeZone`), falling back to `UTC` if detection fails. The manage page renders datetimes in this owner TZ. The public event page renders in the visiting attendee's browser TZ. Linux containers need IANA tzdata available — Microsoft's .NET base images ship it; we'll verify in Phase 1.
 
 ### Threat model summary
 | Threat | Mitigation |
