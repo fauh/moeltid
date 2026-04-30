@@ -1,8 +1,8 @@
 @page "/created/{EventId:guid}"
-@using Moeltid.Data
 @using Moeltid.Models
+@using Moeltid.Services.Events
 @using static Moeltid.Services.TimeZoneHelper
-@inject AppDbContext Db
+@inject IEventService EventService
 @inject NavigationManager Nav
 
 <PageTitle>Event created — Consid Måltid</PageTitle>
@@ -46,11 +46,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        ev = await Db.Events.FindAsync(EventId);
-
-        if (ev is not null)
-        {
-            Console.WriteLine($"[EMAIL STUB] Manage link for '{ev.Title}' → {ManageUrl}");
-        }
+        ev = await EventService.GetByIdAsync(EventId);
     }
 }

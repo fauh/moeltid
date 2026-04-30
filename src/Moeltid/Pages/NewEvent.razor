@@ -1,11 +1,6 @@
 @page "/new"
-@using Moeltid.Data
-@using Moeltid.Models
-@using Moeltid.Services
-@using static Moeltid.Services.TimeZoneHelper
-@inject AppDbContext Db
-@inject SlugGenerator SlugGen
-@inject TokenGenerator TokenGen
+@using Moeltid.Services.Events
+@inject IEventService EventService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -111,51 +106,26 @@
     {
         isSubmitting = true;
         errorMessage = null;
-
-        const int maxAttempts = 3;
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        try
         {
-            try
-            {
-                var ev = new Event
-                {
-                    Id = Guid.NewGuid(),
-                    Slug = SlugGen.Generate(model.Title),
-                    Title = model.Title,
-                    Description = string.IsNullOrWhiteSpace(model.Description) ? null : model.Description.Trim(),
-                    StartsAt = ToUtc(model.StartsAt, model.TimeZoneId),
-                    Deadline = ToUtc(model.Deadline, model.TimeZoneId),
-                    TimeZoneId = model.TimeZoneId,
-                    AllowFreeText = model.AllowFreeText,
-                    AttendeeOrdersVisible = model.AttendeeOrdersVisible,
-                    OwnerName = model.OwnerName.Trim(),
-                    OwnerEmail = model.OwnerEmail.Trim().ToLowerInvariant(),
-                    ManageToken = TokenGen.RandomUrlSafeString(22),
-                    CreatedAt = DateTimeOffset.UtcNow,
-                };
-
-                Db.Events.Add(ev);
-                await Db.SaveChangesAsync();
-
-                Nav.NavigateTo($"/created/{ev.Id}");
-                return;
-            }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
-                when (ex.InnerException?.Message.Contains("UNIQUE") == true && attempt < maxAttempts - 1)
-            {
-                // Slug collision — retry with a fresh slug
-                Db.ChangeTracker.Clear();
-            }
-            catch
-            {
-                errorMessage = "Something went wrong. Please try again.";
-                isSubmitting = false;
-                return;
-            }
+            var ev = await EventService.CreateAsync(new CreateEventRequest(
+                Title: model.Title,
+                Description: model.Description,
+                StartsAt: model.StartsAt,
+                Deadline: model.Deadline,
+                TimeZoneId: model.TimeZoneId,
+                OwnerName: model.OwnerName,
+                OwnerEmail: model.OwnerEmail,
+                AllowFreeText: model.AllowFreeText,
+                AttendeeOrdersVisible: model.AttendeeOrdersVisible
+            ));
+            Nav.NavigateTo($"/created/{ev.Id}");
         }
-
-        errorMessage = "Could not generate a unique event URL. Please try again.";
-        isSubmitting = false;
+        catch
+        {
+            errorMessage = "Something went wrong creating the event. Please try again.";
+            isSubmitting = false;
+        }
     }
 
     private sealed class FormModel : System.ComponentModel.DataAnnotations.IValidatableObject

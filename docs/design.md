@@ -76,6 +76,13 @@ GitHub Pages only serves static assets. The app needs a runtime for DB, schedule
 - EF Core swaps to PostgreSQL with one connection-string and one provider-package change.
 - Dev setup is `dotnet run` and you have a working database.
 
+### Service layer
+Business logic lives in service classes, not Razor pages. Each aggregate (currently just `Event`) has an interface (`IEventService`) and a concrete implementation (`EventService`) in `src/Moeltid/Services/Events/`. Razor pages depend only on the interface via DI.
+
+Rationale: collision-retry, uniqueness checks, "is the event closed" guards, and email-stub side effects are awkward to keep in `.razor` files and untestable without bootstrapping ASP.NET Core component infrastructure. A thin service layer allows straightforward xUnit integration tests.
+
+`IEmailSender` / `ConsoleEmailSender` stub is introduced at Phase 2.5; Phase 5 swaps in a real provider with one DI registration change.
+
 ## 5. Data model
 
 ```

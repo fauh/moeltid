@@ -102,6 +102,20 @@ Adopted from Phase 3 onwards. Phase 2 is where the pattern was learned; its retr
 
 If `design.md` and `change_log.md` ever conflict, `design.md` is canonical and the change log gets amended.
 
+## Testing conventions
+
+Tests live in `tests/Moeltid.Tests/`. The stack is:
+
+| Concern | Choice | Why |
+|---|---|---|
+| Framework | **xUnit** | Standard for .NET; fits the phase plan's testing approach. |
+| Assertions | **FluentAssertions v8** | Readable failure messages; no trade-off on fidelity. |
+| DB for service tests | **SQLite in-memory** (`Data Source=:memory:`) | Higher fidelity than EF in-memory provider (enforces constraints, runs migrations); negligible perf cost. One `SqliteConnection` kept open per test class via `InMemoryDatabaseFixture : IAsyncLifetime`. |
+
+Test naming follows **Microsoft house style**: `MethodName_Scenario_ExpectedOutcome` — e.g. `CreateAsync_ValidRequest_LowerCasesOwnerEmail`. The `CA1707` analyzer warning (underscores in member names) is expected for test files; suppress at the project level if needed.
+
+Tests for each service class live in `tests/Moeltid.Tests/Services/`. Infrastructure helpers (fixtures) live in `tests/Moeltid.Tests/Infrastructure/`.
+
 ## Sandbox vs Windows — division of labour
 
 Claude runs in a Linux sandbox that mounts Wilhelm's Windows workspace folder. The mount is good enough for reading and writing text files (via the file tools `Read` / `Write` / `Edit`), but **structured tooling like `git`, `dotnet`, `npm`, etc. cannot be run reliably from the sandbox against the mount**. Files written by such tools from the sandbox can come back as null-bytes or be undeletable, due to filesystem coherency limits.
