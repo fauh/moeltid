@@ -40,6 +40,22 @@ Phases are sized so any one of them is a comfortable sitting. If a phase grows, 
 
 **Exit criteria**: anyone can create an event; the success page returns a working manage URL; the slug works in `/e/{slug}`.
 
+**Follow-up bugfix tasks** added after Cowork review of Phase 2 — see `docs/phases/phase-2-plan.md` "Follow-up tasks" section. Cover: TZ-aware datetime conversion (input + display), deadline-vs-StartsAt validation, unique index on `ManageToken`. Run before Phase 2.5.
+
+---
+
+## Phase 2.5 — Service layer and tests
+Introduces a thin service layer between Razor pages and the DB so Phase 3+ doesn't accumulate DbContext access scattered through `.razor` files, and so we have unit/integration tests for everything that does business logic.
+- [ ] `IEventService` + `EventService` extracted from current direct-DbContext access in pages.
+- [ ] `tests/Moeltid.Tests/` xUnit project; SQLite in-memory fixture; FluentAssertions.
+- [ ] Tests for `TokenGenerator`, `SlugGenerator`, `EventService`.
+- [ ] Razor pages refactored to use the service interfaces only.
+- [ ] `IEmailSender` stub (`ConsoleEmailSender`) introduced now to make the Phase 5 swap a one-liner.
+
+**Exit criteria**: `dotnet test` runs and passes; pages no longer reference `AppDbContext` directly; service-layer pattern documented in `design.md` §4.
+
+See `docs/phases/phase-2.5-plan.md` for the task breakdown.
+
 ---
 
 ## Phase 3 — Attendee signup and meal ordering

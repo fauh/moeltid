@@ -73,6 +73,25 @@ Wilhelm reviews and signs off (or pushes back) before any code is written. The p
 
 After the phase, the same file gets a **"What actually happened"** section: actual models used, surprises, what we'd do differently. This is the learning tool.
 
+## Phase exit — the two-tool review pattern
+
+A phase isn't closed when Code says "done." Phases close after a **Cowork-side review pass** of the actual deliverables — pages, services, migrations, tests — against the phase plan, the design doc, and the change log.
+
+The pattern that emerged from Phase 2:
+
+1. Code executes the phase, fills in **"What actually happened"** in the phase plan, and stops at the phase boundary.
+2. Cowork does a read-through: actual code + actual tests + retrospective + any earlier code the new feature now touches. Looks for: correctness gaps that masked themselves under happy-path testing, drift between code and `design.md`, missing validation, missing tests, naming or pattern inconsistencies.
+3. Findings land in the phase plan as a **"Post-completion review findings"** subsection inside "What actually happened" — peer to Code's retro, never overwrites it. Severity-marked (🔴 / 🟡 / 🟢).
+4. Anything actionable becomes a **follow-up task** numbered as `N.X` continuing the phase (e.g. `2.14`–`2.18` after Phase 2). Bugfix passes run on the same phase before the next phase starts; they fix already-shipped code rather than introducing new structure.
+5. Once follow-up tasks merge, the phase is truly closed. `change_log.md` gets one entry summarising Code's close *and* the Cowork review pass.
+
+Why the two-tool pattern:
+- Code is closer to the code while writing it, but is also more likely to test the happy path it just authored. A read-through with fresh eyes against the design contract catches different things.
+- The retrospective is a more honest learning artifact when Code's view and Cowork's view both appear, in chronological order, rather than being merged into a single voice.
+- Bugfix passes that ride on the same phase don't pollute the next phase's diff.
+
+Adopted from Phase 3 onwards. Phase 2 is where the pattern was learned; its retrospective retroactively reflects the structure.
+
 ## Documenting decisions — three files, three purposes
 
 | File | Purpose | Edit frequency |

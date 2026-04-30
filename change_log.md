@@ -6,6 +6,35 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-04-30 — Two-tool review pattern formalised in `process.md`
+
+The Phase 2 retrospective surfaced a process insight: "phase complete" is best treated as Code's POV; Cowork should do a read-through review pass before the phase is truly closed. Formalised as a new section in `process.md` ("Phase exit — the two-tool review pattern"). Five steps: Code closes → Cowork reviews → findings land as a peer subsection in the retro → actionable items become follow-up tasks numbered `N.X` → phase truly closes after follow-ups merge.
+
+Adopted from Phase 3 onwards. Phase 2 retroactively reflects the pattern.
+
+## 2026-04-30 — Phase 2 review, follow-up bugfixes, and Phase 2.5 added
+
+Cowork-side review of the Phase 2 deliverables. One real bug surfaced (TZ input conversion stores wall-clock time as UTC without conversion — masked itself in Phase 2 because the display side reads the embedded offset, but breaks correctness from Phase 3 onwards) plus three smaller issues (display-side TZ rendering, deadline-vs-StartsAt validation, unique index on `ManageToken`).
+
+**Follow-up tasks 2.14–2.18 added** to `phase-2-plan.md` after the "What actually happened" section. They run before Phase 2.5; small, scoped fixes to known-working code keep the diff small.
+
+**Phase 2.5 — Service layer and tests** added between Phase 2 and Phase 3 at Wilhelm's suggestion. Reasoning: Razor pages calling `AppDbContext` directly was the right speed for Phase 2 (one entity, no business logic). Phase 3 onwards adds collision-retry, uniqueness checks, "is the event closed" guards, and email-stub side effects — all awkward to keep in `.razor` files and impossible to test without reaching into ASP.NET Core component infrastructure.
+
+**Pattern decisions (working assumptions for the new phase)**:
+- Service classes per entity (`IEventService`, `EventService`) — not repositories, not mediator. Razor pages depend on interfaces; DI binds to concrete implementations.
+- xUnit as the test framework. SQLite in-memory (`Data Source=:memory:`) for service-level integration tests rather than EF in-memory provider — higher fidelity for negligible perf cost. FluentAssertions for readable assertions.
+- `IEmailSender` stub introduced now (`ConsoleEmailSender`) so Phase 5 swaps in a real provider with one DI line.
+- Test naming: `MethodName_Scenario_ExpectedOutcome` (Microsoft house style).
+
+These are noted in `phase-2.5-plan.md` §"Open questions" for confirmation at kickoff.
+
+**Files updated**:
+- `docs/phases/phase-2-plan.md` — Follow-up tasks section (5 tasks: 2.14–2.18) added after "What actually happened".
+- `docs/phases/phase-2.5-plan.md` — new file. 11-task plan: `IEventService` extraction + tests project + initial test coverage.
+- `docs/roadmap.md` — Phase 2.5 inserted between Phase 2 and Phase 3.
+
+**Tasks tracker**: new tasks for the bugfix follow-up and Phase 2.5. Phase 3 dependency rewired so it blocks on Phase 2.5.
+
 ## 2026-04-30 — Process and TZ fixes
 
 - Branch/PR convention added to `process.md`: feature work on `phase-N` or `fix/*` branches; one PR per phase; `main` not committed to directly. Adopted from Phase 3 onwards.
