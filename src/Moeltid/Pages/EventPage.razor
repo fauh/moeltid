@@ -2,6 +2,7 @@
 @using Moeltid.Data
 @using Moeltid.Models
 @using Microsoft.EntityFrameworkCore
+@using static Moeltid.Services.TimeZoneHelper
 @inject AppDbContext Db
 
 <PageTitle>@(ev?.Title ?? "Event") — Consid Måltid</PageTitle>
@@ -26,10 +27,10 @@ else
     }
 
     <p class="text-muted">
-        Event: <strong>@ev.StartsAt.ToString("f")</strong>
+        Event: <strong>@ToLocalString(ev.StartsAt, ev.TimeZoneId)</strong>
     </p>
     <p class="text-muted">
-        Order deadline: <strong>@ev.Deadline.ToString("f")</strong>
+        Order deadline: <strong>@ToLocalString(ev.Deadline, ev.TimeZoneId)</strong>
     </p>
 
     <div class="alert alert-info mt-4">

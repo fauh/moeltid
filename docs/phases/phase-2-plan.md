@@ -95,10 +95,10 @@ Cowork-side review of Phase 2 surfaced one correctness bug and three smaller iss
 | 2.18 | **Doc + change_log update** | `change_log.md`, possibly `design.md` if §5 needs amending | **Haiku** | S | One dated entry summarising the fixes. |
 
 **Exit criteria for the follow-up:**
-- [ ] An event scheduled at "12:00 in Stockholm" round-trips as 12:00 in the manage view (was: 12:00 UTC stored, displayed without TZ conversion → coincidentally fine in Phase 2 but wrong everywhere else).
-- [ ] Form rejects deadlines that fall after the event start.
-- [ ] `Event.ManageToken` has a unique index in the schema.
-- [ ] `change_log.md` records the fix-it pass.
+- [x] An event scheduled at "12:00 in Stockholm" round-trips as 12:00 in the manage view.
+- [x] Form rejects deadlines that fall after the event start.
+- [x] `Event.ManageToken` has a unique index in the schema.
+- [x] `change_log.md` records the fix-it pass.
 
 **Total**: 5 tasks. Sonnet for the conversion logic (judgement-heavy), Haiku for the index + docs. No Opus needed — these are well-specified fixes.
 
