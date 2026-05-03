@@ -7,7 +7,13 @@
 
 <PageTitle>Event created — Consid Måltid</PageTitle>
 
-@if (ev is null)
+@if (notFound)
+{
+    <h1>Event not found</h1>
+    <p>This link doesn't resolve to an event. The event may have been removed, or the link may be wrong.</p>
+    <a href="/" class="btn btn-outline-secondary">Back to home</a>
+}
+else if (ev is null)
 {
     <p>Loading…</p>
 }
@@ -41,11 +47,13 @@ else
     [Parameter] public Guid EventId { get; set; }
 
     private Event? ev;
+    private bool notFound;
     private string ManageUrl => ev is null ? string.Empty
         : Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
 
     protected override async Task OnInitializedAsync()
     {
         ev = await EventService.GetByIdAsync(EventId);
+        notFound = ev is null;
     }
 }

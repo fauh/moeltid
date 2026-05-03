@@ -84,6 +84,30 @@ Completed 2026-04-30 (service layer + tests) and 2026-05-01 (Shouldly migration)
 **Things to do differently:**
 - Nothing significant. Copilot's VS-integrated tooling (run tests, replace in files) made the Shouldly migration mechanical and verifiable in one pass.
 
-**Post-completion review findings:**
+**Post-completion review findings (Cowork-side, retroactive 2026-05-01):**
 
-No Cowork review was conducted for this phase (tooling context not available). The main correctness risk — TZ conversion — was already covered by the `CreateAsync_StockholmSummerTimeZone_ConvertsStartsAtToUtc` test, which passes. All 22 tests green. No follow-up tasks raised.
+Read-through performed in Cowork after phase close: services (`IEventService` / `EventService` / `IEmailSender` / `ConsoleEmailSender` / `TimeZoneHelper`), DI wiring in `Program.cs`, the `AddUniqueIndexOnManageToken` migration, the `InMemoryDatabaseFixture`, all three test files, the three refactored Razor pages. No 🔴 correctness bugs. Architecture and test infrastructure are sound. A handful of 🟡s worth addressing before the related code grows in Phase 3+.
+
+🟡 **Email send is inside the `EventService.CreateAsync` success path**, after `SaveChangesAsync`. A throw from `IEmailSender.SendAsync` would surface to the page as "Something went wrong creating the event" *after* the event has already persisted — the user would retry and create a duplicate. With `ConsoleEmailSender` this is quiescent; Phase 5's real provider will need the email send wrapped in try/catch + warn-log so it's best-effort. **Phase 5 prerequisite.**
+
+🟡 **`TimeZoneHelper.ToUtc` and `ToLocalString` swallow all exceptions and silently fall back.** Same shape as the original Phase 2 bug pattern — silent wrong-UTC if anything throws. Browser-detected IANA IDs are always valid, so this is defensive rather than urgent. Recommended fix: narrow to `TimeZoneNotFoundException` / `InvalidTimeZoneException` and log a warning when the fallback path runs. Cheap; do opportunistically.
+
+🟡 **`EventCreated.razor` doesn't handle the not-found case.** If `EventService.GetByIdAsync(EventId)` returns null, `ev` stays null and the page shows "Loading…" forever. `EventPage.razor` has the right pattern with a `notFound` flag; `EventCreated` should mirror it. Edge case (only reachable post-create), but a stuck "Loading…" state is confusing. ✅ **FIXED 2026-05-01 (Cowork via file edit)** — `notFound` flag mirroring `EventPage.razor` pattern. Triggered the new "Bugfix discipline" section in `process.md`.
+
+🟡 **`IsUniqueConstraintViolation` in `EventService` is SQLite-specific** — checks `ex.InnerException.Message.Contains("UNIQUE")`. PostgreSQL and SQL Server emit different messages. Not a problem today; flagged for the eventual PostgreSQL migration. Either abstract via `EFCore.Exceptions` or branch by provider. **Phase 7 / future-DB prerequisite.**
+
+🟡 **`InMemoryDatabaseFixture` shares one in-memory SQLite instance across all tests in the class** (xUnit `IClassFixture<>` semantics). Current tests are isolation-safe (assert on returned values, not DB counts), but as the test class grows, count-based or unique-constraint-sensitive tests will be flaky. Worth a comment in the fixture documenting the shared-DB lifetime, and a convention in test-naming or test setup that any test which mutates state should be aware of it.
+
+🟢 **No direct unit tests for `TimeZoneHelper`** — exercised indirectly via the Stockholm-summer test in `EventServiceTests`. Direct tests would catch fallback edge cases. Phase 3 cleanup.
+
+🟢 **No test for the slug-collision retry actually firing** — would need a test seam (interface for `SlugGenerator` so tests can inject a deterministic stub that returns a colliding slug N times). Add when convenient.
+
+🟢 **No test for manage-link email body assembly** — `NullEmailSender` swallows it. A `RecordingEmailSender` test double could verify the manage URL appears in the body. Phase 5 will cover this when a real provider arrives.
+
+🟢 **`EventService.GetByIdAsync` uses `FindAsync(...).AsTask()`** — `.AsTask()` always allocates a `Task` even on cache hits. Marginal; making it an `async` method is cleaner. Phase 3+ cleanup.
+
+🟢 **Typo**: `CreateAsync_UtcTimeZone_StoresStaratsAtAsUtc` → `StoresStartsAtAsUtc`. Cosmetic.
+
+**No follow-up tasks raised.** None of the 🟡s are blockers for Phase 3. They map cleanly to specific later phases as prerequisites or opportunistic fixes.
+
+**Process note**: this review was performed retroactively, *after* the phase was marked COMPLETE — exactly the situation `process.md` "Phase exit — the two-tool review pattern" was added to prevent. The pattern formally takes effect from Phase 3 onwards. Phase 2.5's retroactive review is the catch-up, not a precedent. The phase is now genuinely closed.
