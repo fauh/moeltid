@@ -71,7 +71,7 @@ Before any code is written for a phase, Claude writes `docs/phases/phase-N-plan.
 
 Wilhelm reviews and signs off (or pushes back) before any code is written. The plan is the contract for the phase.
 
-After the phase, the same file gets a **"What actually happened"** section: actual models used, surprises, what we'd do differently. This is the learning tool.
+After the phase, the same file gets a **"What actually happened"** section: **the executor used** (Claude Code, GitHub Copilot, other), the actual model(s) run, deviations from plan, surprises, what we'd do differently. This is the learning tool. See §"Executors" for why naming the executor matters.
 
 ## Phase exit — the two-tool review pattern
 
@@ -91,6 +91,18 @@ Why the two-tool pattern:
 - Bugfix passes that ride on the same phase don't pollute the next phase's diff.
 
 Adopted from Phase 3 onwards. Phase 2 is where the pattern was learned; its retrospective retroactively reflects the structure.
+
+## Bugfix discipline — clean working software over rapid progress
+
+The repo is the contract Code and Copilot read to understand the project. Bugs sitting in the repo teach the next executor the wrong patterns. Therefore:
+
+- 🔴 **Bugs** — incorrect behaviour, edge cases producing wrong output, UI states that get stuck (e.g. `EventCreated.razor`'s "Loading…" forever before its Phase 2.5 review fix) — are fixed **as soon as identified**, not batched into a later pass. This applies whether the bug surfaces mid-phase, during a Cowork review, or at any other time.
+- 🟡 **Smells / improvements** — defensive issues, naming, missing tests, performance nits — can be batched into a follow-up pass before the next phase starts, or deferred to a specific later phase if they don't actively cause problems and aren't likely to mislead the next executor.
+- 🟢 **Cosmetic / minor** items can be deferred indefinitely.
+
+When Cowork can apply a fix safely via the file tools (small, well-understood changes — null checks, missing handlers, doc comments, pattern mirrors of other pages), it should: that's faster than queueing for the next executor and avoids leaving the bug in the repo where it might shape the next executor's reading. When the fix needs build/test verification or is structurally non-trivial, Cowork drafts it as a task; the executor applies it.
+
+**Working principle (per Wilhelm, 2026-05-01): clean working software is better than rapid progress.** This is the same root as the "simplicity is KEY" project principle from `design.md`: less code in fewer places means fewer bugs and faster reasoning.
 
 ## Documenting decisions — three files, three purposes
 
@@ -132,6 +144,31 @@ Practical division of labour:
 When a phase needs commands run, Claude provides them as copy-pasteable PowerShell / cmd snippets in chat (and ideally in the phase plan), then waits for Wilhelm to report back. Phase retrospectives should note any tasks that re-routed because of this.
 
 This was discovered during Phase 1 (a `git init` from the sandbox left a broken `.git/` folder that had to be deleted from Windows). Documented to spare us repeating the experiment.
+
+## Executors — Claude Code, GitHub Copilot, or other
+
+The execution side of this project (running `dotnet`, `git`, building, testing) lives outside Cowork on Wilhelm's machine. The **default executor is Claude Code** — it fits the project's process discipline neatly: it can pick a model per task per §"Model selection", and it reads `CLAUDE.md` automatically on entry to orient itself.
+
+**GitHub Copilot is a valid fallback.** This first happened during Phase 2.5, when the Claude Code session hit usage limits mid-phase. Copilot opened the same workspace, read the same `phase-N-plan.md`, executed the remaining tasks, filled in the same retrospective, and closed the phase. Other IDE-embedded executors (Cursor, Aider, etc.) work the same way for the same reason: the docs are the contract, not any specific runtime.
+
+When to switch executors:
+
+- **Claude Code session hits a usage / token limit** mid-phase. The cleanest catch-up is to open Copilot in the same workspace and continue from the in-progress task in the phase plan.
+- A specific task benefits from Copilot's IDE integration (run-tests-on-save loops, "go to definition" while reasoning, etc.).
+- Wilhelm prefers IDE-embedded chat for a particular session.
+
+What stays constant across executors:
+
+- The phase plan in `docs/phases/phase-N-plan.md` is the contract — every executor reads it as their first step.
+- **Every phase retrospective must name the executor and the actual model(s) run.** Required fields: executor, model(s), deviations, surprises, what to do differently. Without these the retrospective doesn't function as a learning artifact — six months from now we need to be able to look back and tell who/what produced a given outcome.
+- **Every Cowork-side review subsection (per §"Phase exit") must reference the executor whose work is being reviewed.** Different executors have different blind spots and tendencies; recording who shipped the code helps the next review know what to look for and lets us calibrate the executor-selection rubric over time.
+- The change log gets a phase-close entry from whoever closed the phase, naming the executor.
+- Cowork still owns the Phase Exit review pass per §"Phase exit — the two-tool review pattern", regardless of who executed.
+
+What may differ:
+
+- **Per-task model selection.** Claude Code can run Haiku / Sonnet / Opus per task per the rubric. GitHub Copilot runs a single model per session (currently Sonnet-class). When Copilot executes a phase, the "Model" column in the plan is informational rather than directive — note the actual model in the retrospective.
+- **Tooling quirks.** Copilot has shipped license-warning banners on third-party libraries (this is how the FluentAssertions → Shouldly swap got noticed in Phase 2.5). Different executors will surface different things; the retrospective is where those serendipities get recorded.
 
 ## When this file changes
 

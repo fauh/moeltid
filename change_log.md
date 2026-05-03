@@ -6,6 +6,74 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-01 — Bugfix discipline added to `process.md`; EventCreated not-found bug fixed
+
+Wilhelm articulated a process principle: bugs should be fixed as soon as identified, not batched into a follow-up pass. Reasoning: the repo is the contract Code and Copilot read to understand the project; buggy code in the repo teaches the next executor the wrong patterns. *"Clean working software is better than rapid progress."*
+
+**Added**: new section `## Bugfix discipline — clean working software over rapid progress` in `process.md`. Differentiates 🔴 bugs (fix immediately, including from Cowork via file tools when safe) from 🟡 smells (batch into follow-up passes) and 🟢 cosmetic items (defer indefinitely).
+
+**Applied immediately**: the 🟡 from Phase 2.5's Cowork review — `EventCreated.razor` showing "Loading…" forever for unknown event IDs — was promoted to a 🔴 (it's an actual stuck UI state, not just a smell) and fixed by Cowork via direct file edit. Mirrors the `notFound` flag pattern already in `EventPage.razor`.
+
+**Knock-on**:
+- `phase-2.5-plan.md` retrospective: the 🟡 bullet now ends with ✅ FIXED 2026-05-01.
+- `phase-3-plan.md`: task 3.0 (which would have done this fix) removed; total drops from 18 to 17. Note added to "Decisions confirmed at kickoff" recording the pre-phase application.
+
+The next executor opening Phase 3 will read clean code with the fix already in place — no risk of inheriting the broken pattern.
+
+## 2026-05-01 — Phase 3 plan signed off
+
+Wilhelm reviewed and signed off the Phase 3 plan. All four open questions resolved:
+
+- **Form post vs interactive Blazor**: form post + minimal-API endpoint.
+- **Cookie + query vs query only**: **query only**. Wilhelm noted that simpler-if-equivalent is preferred. Cowork judged that dropping the cookie removes ~50 lines of well-isolated infra and aligns the design with Phase 2's URL-as-keyholder pattern (manage link). Net win.
+- **Preset options for testing**: seeded via test fixtures only.
+- **WebApplicationFactory-based endpoint tests**: skipped for Phase 3.
+
+**Plan revisions from sign-off**:
+- Cookie helper task removed. Endpoints simplified (no cookie set/clear). Pages read `?t=` from URL instead of cookie.
+- Visibility-toggle semantics with URL tokens documented: ON shows all; OFF + valid `?t=` shows only the matched row; OFF + no token shows no attendee data.
+- Phase 2.5 review carry-over (`EventCreated.razor` not-found bug) added as task 3.0. Small fix; the EventPage rewrite consumes the same idiom so it's natural to do first.
+- New risk added: edit token in URL may leak via Referer headers. Mitigation: avoid external links from token-bearing routes; "save this URL — don't share it" guidance on the success page.
+
+Phase 3 plan now locked. 18 tasks (one fewer than the draft after dropping the cookie helper). Awaiting executor pickup — Claude Code or Copilot.
+
+## 2026-05-01 — Phase 3 plan written
+
+`docs/phases/phase-3-plan.md` drafted in Cowork. 18 tasks covering: `MealOption` and `Attendance` entities + migration, two new services (`IMealOptionService`, `IAttendanceService`), a cookie helper, three minimal-API endpoints (submit / update / withdraw), the `/e/{slug}` public page rewrite, the new `/e/{slug}/edit-order` page, email stub for the edit-link, and ~12 new tests.
+
+Key architectural decisions committed at planning time so execution is judgement-free:
+- Form posts go to minimal-API endpoints (not interactive Blazor) so cookies can be set during the HTTP response. The page stays Blazor-rendered; only the submit roundtrip is a plain form post.
+- Per-event cookie `cm-attendance-{slug}` carries the `EditToken`. HttpOnly, SameSite=Lax, Secure outside dev, 30-day expiry.
+- Form-mode logic: presets-as-radios when present (with an "Other / write my own" radio if `AllowFreeText`); free-text-only when no presets; "not accepting orders" message when neither.
+- Visibility-off mode shows only the cookie-matched attendee's own row.
+- Email is optional; provided → `IEmailSender` stub fires with edit URL.
+- `MealOption` deletion behaviour: `OnDelete(DeleteBehavior.Restrict)` so Phase 4's option-deletion has to think about cascading.
+
+Four working assumptions in §"Open questions" need confirmation before kickoff.
+
+Phase 3 will be the first to formally run under the new "Phase exit — the two-tool review pattern" — Cowork performs a review pass before close, and the retrospective must name the executor + model(s).
+
+Phase 3 plan awaiting Wilhelm sign-off.
+
+## 2026-05-01 — `process.md` extended: GitHub Copilot as a Claude Code fallback
+
+New section "Executors — Claude Code, GitHub Copilot, or other" added to `process.md`. Documents the pattern that emerged during Phase 2.5: when the Claude Code session hit usage limits mid-phase, Copilot picked up the same workspace, read the same phase plan, executed the remainder, and filled in the retrospective. The docs are the contract; the runtime can vary.
+
+What stays constant across executors: phase plan as contract, honest retrospectives, change log entries naming the executor, Cowork-side Phase Exit review pass. What may differ: per-task model selection (Claude Code: rubric-driven Haiku/Sonnet/Opus; Copilot: single Sonnet-class model per session) and tooling quirks (e.g., Copilot's license-warning banner is what surfaced the FluentAssertions swap).
+
+## 2026-05-01 — Phase 2.5 Cowork-side review (retroactive)
+
+Catch-up read-through of the Phase 2.5 deliverables in Cowork. The phase had been closed by GitHub Copilot without a Cowork review pass, in violation of the two-tool review pattern that landed in `process.md` the same week. Performed retroactively before kicking off Phase 3.
+
+Findings:
+- **No 🔴 correctness bugs.** Architecture and test infrastructure are sound.
+- **5× 🟡 worth addressing soon** (none blocking Phase 3): email send inside `CreateAsync` success path (Phase 5 prerequisite); broad `try/catch` + silent fallback in `TimeZoneHelper`; `EventCreated.razor` doesn't handle the not-found case; SQLite-specific `IsUniqueConstraintViolation` (Phase 7 prerequisite); `InMemoryDatabaseFixture`'s shared-DB semantics need documenting.
+- **5× 🟢** (cosmetic / minor): missing direct unit tests for `TimeZoneHelper`, no test for slug-collision retry firing, no test for email-body content, `FindAsync(...).AsTask()` perf nit, one typo (`StaratsAt`).
+
+No new follow-up tasks (`2.5.X`) raised — 🟡s map cleanly to specific later phases. All findings recorded as a peer subsection in `phase-2.5-plan.md` "What actually happened".
+
+Phase 2.5 truly closed. Phase 3 (attendee signup + meal ordering) is next — awaiting Wilhelm sign-off.
+
 ## 2026-05-01 — Phase 2.5 closed: Shouldly migration + retrospective
 
 - **FluentAssertions replaced with Shouldly** across `tests/Moeltid.Tests/`. FluentAssertions v8 changed to a commercial-license model (free for non-commercial only); Shouldly (MIT) is a direct substitute. All 22 tests ported and passing. `Moeltid.Tests.csproj` now references `Shouldly 4.3.0`.
