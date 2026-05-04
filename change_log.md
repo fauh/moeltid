@@ -6,6 +6,18 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-01 — Phase 3 complete: attendee signup and meal ordering
+
+- **`MealTag` / `OrderType` enums**, **`MealOption`** and **`Attendance`** entities added. `AddAttendancesAndMealOptions` migration applied.
+- **`IAttendanceService` / `AttendanceService`**: generates `EditToken` (22-char URL-safe, 3-attempt collision retry), validates `OrderType` + payload combination, lower-cases `Email` in code, fires `IEmailSender` stub when email provided.
+- **`IMealOptionService` / `MealOptionService`**: `ListByEventAsync` only — CRUD deferred to Phase 4.
+- **Minimal-API endpoints** in `Endpoints/AttendanceEndpoints.cs`: `POST /e/{slug}/order` (create), `POST /e/{slug}/order/{id}` (update), `POST /e/{slug}/order/{id}/delete` (withdraw). All antiforgery-validated; create redirects to `/e/{slug}?t={editToken}`.
+- **`/e/{slug}` public page** (`EventPage.razor`) fully implemented: event details, form-mode logic (preset options → radios; free-text only → single input; neither → "not accepting orders"), existing-order banner with edit link, attendee list respecting `AttendeeOrdersVisible` toggle.
+- **`/e/{slug}/edit-order`** (`EditOrder.razor`): pre-populated update form + withdraw button; 404-style handling for invalid/missing token.
+- **Two bugs fixed at handoff** (Claude Code → Copilot): `Attendance.Email` not lowercased in-memory (EF converter fires on DB round-trip only — fixed by applying `.ToLowerInvariant()` directly in `CreateAsync`); SQLite `DateTimeOffset` ORDER BY crash in `ListByEventAsync` (fixed by fetching unordered then sorting client-side).
+- **37 tests passing** (up from 22): `MealOptionServiceTests` (3), `AttendanceServiceTests` (12) added.
+- Phase 3 closed. Phase 4 (owner manage page) is next — awaiting Wilhelm sign-off.
+
 ## 2026-05-01 — Bugfix discipline added to `process.md`; EventCreated not-found bug fixed
 
 Wilhelm articulated a process principle: bugs should be fixed as soon as identified, not batched into a follow-up pass. Reasoning: the repo is the contract Code and Copilot read to understand the project; buggy code in the repo teaches the next executor the wrong patterns. *"Clean working software is better than rapid progress."*

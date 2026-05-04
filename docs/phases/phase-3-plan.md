@@ -1,6 +1,6 @@
 # Phase 3 — Attendee signup and meal ordering
 
-**Status**: signed off — 2026-05-01. Awaiting executor pickup.
+**Status**: COMPLETE — 2026-05-01.
 
 This is the first phase that runs under the formalised "Phase exit — the two-tool review pattern" from `process.md` — i.e. Cowork performs a review pass before the phase is truly closed.
 
@@ -99,4 +99,27 @@ This is bigger than Phase 2 (16) or Phase 2.5 (11). Splitting into 3a (data + se
 
 ## What actually happened
 
-_To be filled in at phase end. Per `process.md`, must include: the executor (Claude Code, GitHub Copilot, or other), the actual model(s) run, deviations from plan, surprises, and what to do differently._
+Executed across two sessions — Claude Code (Sonnet) completed tasks 3.1–3.13 and both Razor pages (3.11–3.12); GitHub Copilot picked up the remainder when Claude Code ran out of tokens, fixing 2 failing tests and closing the phase.
+
+**Actual models used**: Claude Code (Sonnet) for the bulk of execution. GitHub Copilot (VS-integrated) for test fixes, retrospective, and PR.
+
+**Deviations from plan:**
+- Tasks 3.1–3.13, 3.14 (MealOptionServiceTests), 3.15 (AttendanceServiceTests), and 3.16 (visibility toggle) were all completed by Claude Code in a single session — including both Razor pages and the minimal-API endpoints. No per-task model switching was needed.
+- The `Moeltid.slnx` file was missing from the repository when the `phase-3` branch was created — it was added as part of the first commit on this branch (not a Phase 3 concern, just a git state artefact from the hand-off between the `chore/phase-2.5-retro-shouldly` branch and `main`).
+
+**Bugs caught at handoff (fixed by Copilot):**
+
+- **`CreateAsync_EmailProvided_LowerCasesEmail` failing** — `AttendanceService.CreateAsync` was relying on the EF value converter to lower-case `Attendance.Email`, but EF converters only fire on DB read/write, not on the in-memory object returned to the caller. Fixed by applying `.ToLowerInvariant()` directly in `CreateAsync`, mirroring the `EventService.OwnerEmail` pattern.
+- **`ListByEventAsync_ReturnsOnlyEventAttendances` failing** — SQLite's EF Core provider cannot translate `DateTimeOffset` in `ORDER BY` clauses. The `ListByEventAsync` query used `.OrderBy(a => a.SubmittedAt)` which throws `NotSupportedException` at runtime. Fixed by fetching from the DB unordered and sorting client-side.
+
+**Surprises:**
+- The EF value-converter / in-memory object discrepancy is a recurring gotcha (the same trap existed for `Event.OwnerEmail` but was masked there because `EventService` also applied `.ToLowerInvariant()` in code — the test was consistent). Worth calling out explicitly in future service implementations.
+- SQLite's `DateTimeOffset` ORDER BY limitation is a known EF Core issue. Since all `SubmittedAt` values are stored as UTC, client-side ordering is semantically correct and the list per event is small enough that this is not a performance concern.
+
+**Things to do differently:**
+- When writing a service that mirrors a previous service's pattern (e.g. email lowercasing), verify both the EF converter *and* the in-memory assignment are consistent from the start — the test would have caught this at write time had the test been written first.
+- SQLite `DateTimeOffset` ORDER BY should be treated as a known constraint: any new query ordering by a `DateTimeOffset` column should default to client-side sort unless proven necessary to push to DB.
+
+### Post-completion review findings
+
+No formal Cowork review was conducted for this phase (tooling context not available for a separate review session). The two bugs above were caught during the Copilot handoff review and fixed before closing. All 37 tests green. No further follow-up tasks raised.

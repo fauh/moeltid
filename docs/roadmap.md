@@ -59,15 +59,15 @@ See `docs/phases/phase-2.5-plan.md` for the task breakdown.
 ---
 
 ## Phase 3 — Attendee signup and meal ordering
-- [ ] `MealOption` and `Attendance` entities + migration. `MealTag` flags enum.
-- [ ] `/e/{slug}` public event page: shows event details, attendee form, list of existing attendees/orders if `AttendeeOrdersVisible`.
-- [ ] Attendee form: name, optional email, **free-text order field (primary path)** OR pick a preset meal option.
-- [ ] Submit handler: persist `Attendance`, generate `EditToken`, set per-event cookie, console-log would-be edit email.
-- [ ] `/e/{slug}/edit-order` page: read token from cookie or `?t=`, allow edit / withdraw before close.
-- [ ] Wire the per-event visibility toggle: when off, attendees see only their own row; when on, everyone sees everything.
-- [ ] Free-text path verified as the lowest-friction one (one input, submit).
+- [x] `MealOption` and `Attendance` entities + migration. `MealTag` flags enum.
+- [x] `/e/{slug}` public event page: shows event details, attendee form, list of existing attendees/orders if `AttendeeOrdersVisible`.
+- [x] Attendee form: name, optional email, **free-text order field (primary path)** OR pick a preset meal option.
+- [x] Submit handler: persist `Attendance`, generate `EditToken`, redirect to `/e/{slug}?t={editToken}`, console-log would-be edit email. (URL-only; no cookie — simplified at sign-off.)
+- [x] `/e/{slug}/edit-order` page: read token from `?t=`, allow edit / withdraw before close.
+- [x] Wire the per-event visibility toggle: when off, attendees see only their own row; when on, everyone sees everything.
+- [x] Free-text path verified as the lowest-friction one (one input, submit).
 
-**Exit criteria**: end-to-end ordering works for any attendee; they can edit/withdraw via cookie.
+**Exit criteria**: end-to-end ordering works for any attendee; they can edit/withdraw via URL token.
 
 ---
 
