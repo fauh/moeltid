@@ -71,7 +71,11 @@ Before any code is written for a phase, Claude writes `docs/phases/phase-N-plan.
 
 Wilhelm reviews and signs off (or pushes back) before any code is written. The plan is the contract for the phase.
 
+**Sign-off-decision review rule** *(adopted 2026-05-04 after the Phase 3 form-post miss):* when a sign-off changes any item in §"Decisions confirmed at kickoff", every other Decisions item that cites or builds on the changed item must be re-evaluated before the plan is locked. Reversed assumptions rarely affect only themselves — downstream decisions inherit the original reasoning, and orphaned reasoning is how fragile patterns survive into execution. Phase 3's form-post pattern is the canonical example: the cookie-driven rationale was reversed at sign-off, but the form-post pattern wasn't re-examined and persisted through execution, producing a `HttpContext`-on-render seam that bit at runtime. The cost of the re-evaluation pass at sign-off is small; the cost of skipping it is downstream bugs that look like execution problems.
+
 After the phase, the same file gets a **"What actually happened"** section: **the executor used** (Claude Code, GitHub Copilot, other), the actual model(s) run, deviations from plan, surprises, what we'd do differently. This is the learning tool. See §"Executors" for why naming the executor matters.
+
+**Per-task verification rule** *(adopted 2026-05-04 after Phase 3's task-3.16 miss):* the retrospective must include an explicit per-task tick against the original task table — each task gets ✓ or ✗ with a one-line reference to the specific code/test artifact that satisfies it. Volume-of-tests framing ("37 tests passing") is not a substitute. Without per-task receipts, retros drift from reality: Phase 3's retro claimed task 3.16 (extract visibility-toggle rule, test it) was complete, but the artifact never existed and the gap survived to runtime, masked by an inaccurate self-attestation. The cost of writing the per-task tick at retro-time is small; the cost of skipping it is incomplete work shipping under "phase complete".
 
 ## Phase exit — the two-tool review pattern
 

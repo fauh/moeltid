@@ -124,6 +124,13 @@ Reminder
   ScheduledFor    DateTimeOffset (UTC)
   IsSent          bool           default false
   HangfireJobId   string?
+
+Invitee  (added 2026-05-04 in Phase 4.5)
+  Id            Guid           PK
+  EventId       Guid           FK -> Event (cascade-delete)
+  Email         string         lower-cased via value converter
+  InvitedAt     DateTimeOffset (UTC)
+  UNIQUE(EventId, Email)
 ```
 
 Notes:
@@ -139,7 +146,7 @@ Notes:
 | `/` | anyone | Landing. CTA to create an event. |
 | `/new` | anyone | Create-event form: title, description, deadline, owner name, owner email, time zone (defaulted from browser), meal options, free-text toggle, visibility toggle. |
 | `/created/{eventId}` | creator (one-shot, post-create) | Success screen showing the manage URL plainly + a note that it was emailed. "Bookmark this URL" prompt. |
-| `/e/{slug}` | anyone with the link | Public event page: attendee signup, meal ordering. Shows others' orders if `AttendeeOrdersVisible`. |
+| `/e/{slug}` | anyone with the link | Public event page: attendee signup, meal ordering. Shows others' orders if `AttendeeOrdersVisible`. Optional `?invite={inviteeId}` query param pre-fills the email field read-only when arriving via an emailed invite link. |
 | `/e/{slug}/edit-order` | attendee with edit token (cookie or `?t=` from email) | Edit or withdraw your own order. |
 | `/e/{slug}/manage` | manage-token holder (`?t=` in URL) | Owner manage page. Token validated on every request. |
 | `/e/{slug}/manage/recover` | anyone | Form to request the manage link emailed to the owner. Rate-limited per IP and per email. |
@@ -202,6 +209,8 @@ Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at 
 - **Reminder model**: owner picks an explicit datetime; one reminder per event.
 - **Export format**: CSV only in v1; xlsx revisit later.
 - **Order multiplicity**: one order per attendee per event; multi-item needs go in free text.
+- **Invitations** *(2026-05-04)*: at event creation time and on the manage page, the owner can list emails of people to invite. Each invitee gets an emailed link `/e/{slug}?invite={inviteeId}` that pre-fills their email read-only on the public form. Invited-but-not-ordered rows show on the event page (subject to the visibility toggle) flagged "no order yet". Manage page has a "Send reminders" action for the unordered subset.
+- **Meal options at creation**: owner can define preset meal options (label + tag flags) inline on the create-event form. Same options can also be managed on the manage page later.
 
 ### Still open
 - [x] **Slug format** — confirmed 2026-04-30: `{kebab-title}-{6-char-random}`, falling back to `event-{6-char-random}` for empty/long titles.
@@ -210,6 +219,7 @@ Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at 
 - [ ] **Reminder vs. deadline guard** — should the UI prevent reminders scheduled after the deadline? *Working assumption*: yes. **Confirm before Phase 5.**
 - [ ] **Event-creation rate-limit** — *working assumption*: 10 events / hour / IP. **Confirm before Phase 8.**
 - [ ] **Public-page attendee visibility default** — confirmed default on, but should we display *names only* or *names + orders* when the toggle is off? *Working assumption*: names only (so an attendee can see how many people are coming without seeing what they're eating). Could also be "nothing visible to other attendees". **Confirm before Phase 3.**
+- [ ] **Event retention policy** *(raised at Phase 4 sign-off, 2026-05-04)* — events are short-lived by design; data shouldn't accumulate forever. Open questions: how long after the deadline does an event live? what's deleted at retention end (the whole event including attendances, or just orders)? does the owner get notified before deletion? *Working assumption*: hard-delete the event and its attendances 90 days after `Deadline`, no warning email. Possibly a warning email at 75 days if email-sending exists by then. **Confirm before Phase 9.** Lives with the other production-hardening work (rate limits, backups, domain) in Phase 9.
 
 ## 10. Roadmap pointer
 

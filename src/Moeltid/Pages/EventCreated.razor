@@ -38,7 +38,7 @@ else
     <p><strong>Event date:</strong> @ToLocalString(ev.StartsAt, ev.TimeZoneId)</p>
     <p>
         <strong>Public event URL:</strong><br />
-        <a href="/e/@ev.Slug">/e/@ev.Slug</a>
+        <a href="/e/@ev.Slug" @onclick:preventDefault @onclick="GoToPublicPage">/e/@ev.Slug</a>
     </p>
     <p class="text-muted">Share the public URL with attendees. Share the manage link only with people you want to co-administer this event.</p>
 }
@@ -55,5 +55,13 @@ else
     {
         ev = await EventService.GetByIdAsync(EventId);
         notFound = ev is null;
+    }
+
+    // forceLoad is required because /e/{slug} renders a form that depends on
+    // HttpContext (for antiforgery tokens). Soft-nav inside the SignalR circuit
+    // leaves HttpContext null and the form silently fails to render.
+    private void GoToPublicPage()
+    {
+        if (ev is not null) Nav.NavigateTo($"/e/{ev.Slug}", forceLoad: true);
     }
 }

@@ -6,6 +6,127 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-04 — Phase 4.5 plan signed off; execution order confirmed
+
+Wilhelm reviewed the Phase 4.5 plan and signed off. Execution order: **Phase 4 first, then Phase 4.5** (option A from the three offered — the default; Phase 4.5 explicitly blocks on Phase 4 per task-tracker dependencies). No further plan revisions.
+
+Both plans locked. Ready for Code/Copilot pickup.
+
+## 2026-05-04 — Phase 4.5 added: invitations and create-time enrichments
+
+Wilhelm surfaced four new requirements after Phase 4 was signed off:
+
+1. Define preset meal options at event creation time.
+2. Invite people by email at creation; each invitee receives a link to the event.
+3. Invited emails show on the event page flagged "no order yet" (subject to visibility toggle).
+4. Manage page can send a reminder to all invitees who haven't ordered.
+
+**Placement**: new **Phase 4.5** between Phase 4 and Phase 5, blocked-by Phase 4. Both create-form enrichments (meal options + invitations) bundle here because they share `NewEvent.razor` and `EventService.CreateAsync` changes; splitting would fragment a coherent diff. Phase 4 stays single-purpose (manage page only). Phase 5 grows by two new email types (invite + reminder-to-unordered) — no infrastructure change, just bodies.
+
+This reverses my earlier-in-session suggestion that meal-options-at-creation could go in Phase 4. The reversal is documented in `phase-4.5-plan.md` §"Knock-on from sign-off".
+
+**Sign-off-decision review rule applied**: re-checked every Decisions item in `phase-4-plan.md` and `design.md` against the seven answers Wilhelm gave to the open questions. One ripple (the meal-options placement reversal); no other items affected. Rule's second real save.
+
+**Locked decisions** (rolled up from the seven Q&A answers):
+
+- Comma-separated email parsing on the create form, deduped server-side, case-insensitive.
+- Invite link `/e/{slug}?invite={inviteeId}` — query string, not token; invitee IDs aren't sensitive credentials.
+- Pre-filled email is **read-only** when arriving via valid `?invite=`; editable otherwise.
+- `UNIQUE(EventId, Email)` on `Invitee`. Adding a duplicate (already-invited or already-ordered) prompts and refuses.
+- Removing an invitee who has an attendance: three-option prompt (keep order / remove both / cancel). Service supports both delete modes transactionally.
+- Send-reminders confirmation: prose + count of recipients.
+- Invitees can be added at creation AND on the manage page — same service.
+
+**Files added / updated**:
+- `docs/phases/phase-4.5-plan.md` — new (15 tasks).
+- `docs/design.md` §3 (scope additions: invitations, meal-options-at-creation), §5 (`Invitee` entity), §6 (`?invite=` query parameter on `/e/{slug}`).
+- `docs/roadmap.md` — Phase 4.5 inserted between Phase 4 and Phase 5; Phase 5 scope extended with the two new email bodies.
+- `docs/phases/phase-4-plan.md` — unchanged. Phase 4 remains single-purpose.
+- Tasks tracker: new task for Phase 4.5; Phase 5 (#6) blocked-by Phase 4.5.
+
+Phase 4.5 plan awaiting Wilhelm sign-off (the seven design questions are already answered, so this should be a quick read-through).
+
+## 2026-05-04 — Phase 3 re-closed (executor verified)
+
+Executor ran `dotnet test` against the Cowork-applied 3.16 fix. All 42 tests pass (37 prior + 5 new in `AttendanceVisibilityTests`). Phase 3 status flipped from REOPENED to RE-CLOSED in `phase-3-plan.md`; tracker task #4 moved back to completed. Phase truly closed this time.
+
+The per-task verification rule had its first real payoff: applied retroactively to Phase 3, it caught the 3.16 gap in this reopen pass (and would have caught it at original close had it existed then). The rule is now load-bearing for every future phase exit. Phase 4 is the first one running with it from the start.
+
+## 2026-05-04 — Phase 3 reopened: task 3.16 was never completed
+
+Wilhelm ran Claude Code over the Phase 3 deliverables; Claude Code surfaced that task 3.16 (extract visibility-toggle rule as a service method or pure helper, test it) was never actually done despite the retro claiming completion. The visibility logic existed only inline in `EventPage.razor`'s `VisibleAttendances` property; no helper, no tests. A vestige in `AttendanceServiceTests.SeedEventAsync` (an unused `attendeeOrdersVisible` parameter) confirmed the work was started and abandoned.
+
+**Fixed by Cowork in this session**:
+- Added `Services/AttendanceVisibility.cs` — pure static `Apply(IEnumerable<Attendance>, bool, Guid?)` helper expressing the toggle rule.
+- Added `tests/.../AttendanceVisibilityTests.cs` — 5 tests covering ON, ON-with-irrelevant-id, OFF + my-attendance, OFF + no-attendance, OFF + my-attendance-not-in-list.
+- Refactored `EventPage.razor`'s `VisibleAttendances` to call the helper.
+- Removed the now-unused `bool attendeeOrdersVisible` parameter from `AttendanceServiceTests.SeedEventAsync`.
+
+**Tracker**: Phase 3 (#4) moved back to in_progress; will move to completed when the executor verifies `dotnet test` passes.
+
+**Process improvements added to `process.md`**:
+- New **per-task verification rule** under §"Phase decomposition": the retrospective must include an explicit per-task tick against the original task table, with each tick pointing at the specific code/test artifact that satisfies it. Volume-of-tests framing is not a substitute. Without receipts, retros drift.
+- Phase 3's reopened retrospective demonstrates the new format — full per-task tick table inline.
+
+**Receipts for why the gap survived** *(captured for the rule's `change_log` story)*:
+1. No Cowork review pass when Phase 3 originally closed (process violation, same gap as Phase 2.5).
+2. Retro was self-attested by the executor as prose, not verified against the task table.
+3. "37 tests passing" framed as coverage masked which tasks were covered.
+4. The first 2026-05-04 Cowork review (the form/forceLoad fixes) focused on user-visible bugs and didn't audit test coverage against the plan. Claude Code caught it on its next session.
+
+The per-task verification rule, applied at retro time, would have caught all of these.
+
+## 2026-05-04 — Phase 4 plan signed off
+
+Wilhelm reviewed and signed off all four open questions plus the recover-flow shape. Sign-off-decision review rule applied: re-checked every §"Decisions confirmed at kickoff" item against the answers; no reasoning chains broken, no items needed updating. Manage-URL panel folded into task 4.4's scope (no new task needed).
+
+**Confirmed**:
+- Meal-option deletion converts dependent attendances to FreeText (option label preserved as `FreeTextOrder`). Wilhelm noted he may revisit after manual UX testing.
+- "Invalid manage link" wording and behaviour locked.
+- Rotate-token uses two-step pure-Blazor confirmation (no JS prompts).
+- Manage URL display panel at the top of the manage page — included.
+- `GetByOwnerEmailAsync` returns multiple events; recover sends one email per matching event (each link directly clickable).
+
+**New design question raised**: events are short-lived; need a max retention policy. Captured in `design.md` §9 (confirm before Phase 9) with a working assumption of *hard-delete events + attendances 90 days past `Deadline`, no warning email*. Added as a checkbox in `roadmap.md` **Phase 9 (production launch)** — same flavour as rate limits, backups, and domain hardening.
+
+Phase 4 plan now locked. 14 tasks. Awaiting executor pickup — Claude Code or Copilot.
+
+## 2026-05-04 — Phase 4 plan written
+
+`docs/phases/phase-4-plan.md` drafted: 14 tasks covering manage page (event edit, meal options CRUD with reassignment-on-delete, orders view with per-row delete, close-event, rotate-token), separate recover-link page, and ~13 new tests.
+
+**Hard rules locked at kickoff** — directly carried from Phase 3's retrospective lesson:
+- **Interactive Blazor for ALL manage actions, not form-post-to-minimal-API.** No antiforgery middleware, no `IHttpContextAccessor`, no minimal-API endpoints. Phase 3's pattern is not repeated.
+- Manage token via `[SupplyParameterFromQuery]`, validated at `OnInitializedAsync`.
+- "Invalid manage link" generic page that doesn't differentiate wrong-token from event-not-found (slug existence not leaked).
+- Manage actions extend existing services (`IEventService`, `IMealOptionService`, `IAttendanceService`) — no new "manage" services.
+- Meal-option deletion converts dependent attendances to `FreeText` (preserving the option label as the free-text), with confirmation. Owner-friendly UX over refuse-to-delete.
+- Recover form is interactive Blazor too. Rate limiting deferred to Phase 8.
+
+Four working assumptions in §"Open questions" need confirmation before kickoff.
+
+Phase 4 plan awaiting Wilhelm sign-off. **Sign-off triggers the new "sign-off-decision review rule"** — every Decisions item gets re-evaluated against any change before the plan is locked.
+
+## 2026-05-04 — Sign-off-decision review rule added to `process.md`
+
+After the Phase 3 form-post planning miss, added a new rule to `process.md` §"Phase decomposition": **when a sign-off changes any §"Decisions confirmed at kickoff" item, every other Decisions item that cites or builds on the changed item must be re-evaluated before the plan is locked.** Phase 3 was the canonical example — cookies were dropped at sign-off, but the form-post pattern (whose rationale depended on cookies) wasn't re-examined and persisted through to execution, producing the `HttpContext`-on-render seam that bit at runtime.
+
+Cost of the re-evaluation pass at sign-off: small. Cost of skipping it: downstream bugs that look like execution problems.
+
+## 2026-05-04 — Phase 3 Cowork review (retroactive) + bugfixes
+
+Wilhelm tested the running app, found bugs, asked Cowork to analyse. Catch-up review performed; Phase 3 had been closed without a formal Cowork pass, the same gap Phase 2.5 hit. Two 🔴 bugs found and fixed by Cowork via direct file edits per the bugfix-immediately principle.
+
+**🔴 Bug 1 — preset-option submissions broken.** Both attendee pages used a `name="orderType"` radio + separate hidden `name="mealOptionId" value=""` input. Pattern assumed JS would populate the hidden field on radio change; no JS was ever written. Form submitted with empty `mealOptionId`, service rejected with 400. Only free-text orders worked. Fixed by collapsing to a single `name="mealOptionId"` radio group where each preset's value is the option's Guid and the free-text radio's value is empty; server derives `OrderType` from whether the value parses. No hidden inputs, no JS. Applied to `EventPage.razor`, `EditOrder.razor`, `AttendanceEndpoints.cs` (both create and update handlers).
+
+**🔴 Bug 2 — form silently failed to render after Blazor soft-nav.** Both pages used `IHttpContextAccessor.HttpContext` to render antiforgery tokens, gated on a not-null check. `HttpContext` is bound to the original HTTP request and is null during re-renders inside Blazor's SignalR circuit, including soft-nav between routes. Natural in-app flow (create event → click "Public event URL") hit this: page rendered without the form. Fixed by adding `@onclick:preventDefault @onclick="GoToX"` to the four internal nav anchors that lead to form-bearing pages, where `GoToX` calls `Nav.NavigateTo(url, forceLoad: true)`. Fixes `EventCreated.razor` (1 anchor), `EventPage.razor` (1 anchor), `EditOrder.razor` (3 anchors).
+
+**Planning miss recorded.** The form-post pattern in Phase 3 was load-bearing *before* the cookie was dropped at sign-off; once cookies left the design, the pattern was over-engineered. We didn't re-evaluate. The HttpContext-on-render constraint that broke things was never anticipated explicitly. Documented in the Phase 3 retrospective under a new "Planning miss — and what it means for Phase 4" section. Phase 4 should adopt interactive Blazor forms throughout (manage token via `[SupplyParameterFromQuery]`, services validate ownership) rather than repeating the form-post pattern. Phase 3 could optionally be simplified to match in a later polish phase.
+
+Smaller findings deferred to specific later phases: endpoint error UX (Phase 8), email URLs (Phase 5), `IsUniqueConstraintViolation` portability (Phase 7).
+
+Phase 3 truly closed.
+
 ## 2026-05-01 — Phase 3 complete: attendee signup and meal ordering
 
 - **`MealTag` / `OrderType` enums**, **`MealOption`** and **`Attendance`** entities added. `AddAttendancesAndMealOptions` migration applied.

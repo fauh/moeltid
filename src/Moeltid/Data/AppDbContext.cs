@@ -6,6 +6,8 @@ namespace Moeltid.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Event> Events => Set<Event>();
+    public DbSet<MealOption> MealOptions => Set<MealOption>();
+    public DbSet<Attendance> Attendances => Set<Attendance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -16,6 +18,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.ManageToken).IsUnique();
             e.Property(x => x.OwnerEmail)
                 .HasConversion(v => v.ToLowerInvariant(), v => v);
+        });
+
+        modelBuilder.Entity<MealOption>(o =>
+        {
+            o.HasKey(x => x.Id);
+            o.HasIndex(x => x.EventId);
+            o.HasOne(x => x.Event)
+                .WithMany()
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Attendance>(a =>
+        {
+            a.HasKey(x => x.Id);
+            a.HasIndex(x => x.EditToken).IsUnique();
+            a.HasIndex(x => x.EventId);
+            a.Property(x => x.Email)
+                .HasConversion(
+                    v => v == null ? null : v.ToLowerInvariant(),
+                    v => v);
+            a.HasOne(x => x.Event)
+                .WithMany()
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            a.HasOne(x => x.MealOption)
+                .WithMany()
+                .HasForeignKey(x => x.MealOptionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
         });
     }
 }

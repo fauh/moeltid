@@ -1,6 +1,6 @@
 # Phase 3 — Attendee signup and meal ordering
 
-**Status**: COMPLETE — 2026-05-01.
+**Status**: RE-CLOSED 2026-05-04 — originally closed 2026-05-01, reopened 2026-05-04 after Claude Code surfaced that task 3.16 was never completed. Cowork wrote the missing helper + tests + page refactor; executor verified with `dotnet test` on the same date. All 42 tests pass. Phase truly closed.
 
 This is the first phase that runs under the formalised "Phase exit — the two-tool review pattern" from `process.md` — i.e. Cowork performs a review pass before the phase is truly closed.
 
@@ -120,6 +120,85 @@ Executed across two sessions — Claude Code (Sonnet) completed tasks 3.1–3.13
 - When writing a service that mirrors a previous service's pattern (e.g. email lowercasing), verify both the EF converter *and* the in-memory assignment are consistent from the start — the test would have caught this at write time had the test been written first.
 - SQLite `DateTimeOffset` ORDER BY should be treated as a known constraint: any new query ordering by a `DateTimeOffset` column should default to client-side sort unless proven necessary to push to DB.
 
-### Post-completion review findings
+### Reopened — second review found task 3.16 was never actually completed (2026-05-04, later)
 
-No formal Cowork review was conducted for this phase (tooling context not available for a separate review session). The two bugs above were caught during the Copilot handoff review and fixed before closing. All 37 tests green. No further follow-up tasks raised.
+Wilhelm ran Claude Code against the Phase 3 deliverables and surfaced an incompleteness that the earlier Cowork review on the same date had also missed: **task 3.16 was never done.** The plan called for the visibility-toggle rule to be extracted as "a service method or pure helper, test it" — neither artifact existed. The visibility logic was inline in `EventPage.razor`'s `VisibleAttendances` property and untested. A telltale vestige in the test code confirmed the work was started and abandoned: `AttendanceServiceTests.SeedEventAsync` accepted a `bool attendeeOrdersVisible = true` parameter that no test ever passed.
+
+**Per-task verification, retroactively applied** to the original 17-task table:
+
+| #    | Task                                                            | Status | Artifact                                                                              |
+| ---- | --------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| 3.0  | (removed pre-phase — applied as Cowork bugfix 2026-05-01)       | ✓      | `Pages/EventCreated.razor` notFound branch                                            |
+| 3.1  | `MealTag` + `OrderType` enums                                   | ✓      | `Models/MealTag.cs`, `Models/OrderType.cs`                                            |
+| 3.2  | `MealOption` entity                                             | ✓      | `Models/MealOption.cs`                                                                |
+| 3.3  | `Attendance` entity                                             | ✓      | `Models/Attendance.cs`                                                                |
+| 3.4  | `AppDbContext` updates                                          | ✓      | `Data/AppDbContext.cs` (DbSets, indexes, value converter, FK behaviours)              |
+| 3.5  | EF migration                                                    | ✓      | `Migrations/20260503195436_AddAttendancesAndMealOptions.cs`                           |
+| 3.6  | `IMealOptionService` + `MealOptionService`                      | ✓      | `Services/MealOptions/*`                                                              |
+| 3.7  | `IAttendanceService` + DTOs                                     | ✓      | `Services/Attendances/IAttendanceService.cs`                                          |
+| 3.8  | `AttendanceService` impl                                        | ✓      | `Services/Attendances/AttendanceService.cs`                                           |
+| 3.9  | DI registrations                                                | ✓      | `Program.cs`                                                                          |
+| 3.10 | Antiforgery + minimal-API endpoints                             | ✓      | `Endpoints/AttendanceEndpoints.cs`                                                    |
+| 3.11 | `EventPage.razor`                                               | ✓      | `Pages/EventPage.razor` (with the form-pattern + forceLoad fixes from Cowork's 2026-05-04 first pass) |
+| 3.12 | `EditOrder.razor`                                               | ✓      | `Pages/EditOrder.razor`                                                               |
+| 3.13 | Email stub on attendee email provided                           | ✓      | `AttendanceService.SendEditLinkEmailAsync`                                            |
+| 3.14 | `MealOptionServiceTests`                                        | ✓      | 3 tests in `tests/.../MealOptionServiceTests.cs`                                      |
+| 3.15 | `AttendanceServiceTests`                                        | ✓      | 12 tests in `tests/.../AttendanceServiceTests.cs`                                     |
+| 3.16 | Visibility-toggle behaviour test (helper + tests)               | ✗ → ✓  | **MISSED in original close. Fixed in this reopen pass:** `Services/AttendanceVisibility.cs` + 5 tests in `tests/.../AttendanceVisibilityTests.cs`. `EventPage.razor` refactored to call the helper. |
+| 3.17 | Retro + change_log + docs                                       | ✓      | this file + `change_log.md`                                                           |
+
+**Why the gap slipped through** *(documented as the receipt for the new "per-task verification" rule in `process.md`)*:
+
+1. **No Cowork-side review pass** when Phase 3 originally closed. The retro itself called this out: *"No formal Cowork review was conducted (tooling context not available)"*. The "Phase exit — two-tool review pattern" rule in `process.md` exists exactly to catch this; the rule wasn't followed.
+2. **The retro was self-attested by the executor**, written as prose ("Tasks 3.1–3.13, 3.14, 3.15, and 3.16 were all completed") rather than verified against the task table line by line. Without per-task receipts pointing at artifacts, "completed" was an unfalsifiable claim.
+3. **"37 tests passing" framed as coverage**. Volume of tests masked which tasks were covered. The plan listed specific scenarios (ON, OFF + token, OFF + no token); the retro should have ticked each scenario against the test that proves it.
+4. **The first Cowork-side review pass on 2026-05-04 (the form/forceLoad fixes) also missed this.** That pass focused on user-visible bugs Wilhelm reported and didn't audit the test coverage against the plan. The per-task tick rule would have caught it then; Claude Code caught it on its next session instead.
+
+**Post-completion review findings (Cowork-side, retroactive 2026-05-04)**
+
+The phase was originally closed without a Cowork-side review pass — the same gap that the new "Phase exit" pattern in `process.md` was meant to prevent (and that Phase 2.5 had already hit). Wilhelm tested the running app, found bugs, and asked Cowork to analyse. This subsection is the catch-up review.
+
+**🔴 Two bugs surfaced — both fixed by Cowork via direct file edits:**
+
+🔴 **Preset-option submissions were broken — `mealOptionId` always empty on form post.** Both `EventPage.razor` and `EditOrder.razor` used a pattern of `<input type="radio" name="orderType">` plus separate hidden `<input type="hidden" name="mealOptionId" value="">` fields with empty literals. The intent was clearly that JavaScript would copy `data-meal-option-id` into the hidden field on radio change — but no JavaScript was ever written. Result: when an attendee picked a preset option, the form submitted `orderType=PresetOption&mealOptionId=` (empty), the endpoint passed `null` to `AttendanceService.CreateAsync`, validation threw, user saw a 400. Only free-text orders worked. **Fixed**: removed the hidden inputs and the `orderType` radio, made each preset radio carry `name="mealOptionId" value="@option.Id"`, made the free-text radio carry `name="mealOptionId" value=""`, derived `OrderType` server-side from whether `mealOptionId` parses to a Guid. No JS needed; single source of truth. Same shape applied to update endpoint and `EditOrder.razor`.
+
+🔴 **Form silently failed to render after Blazor soft-navigation.** Both pages used `IHttpContextAccessor.HttpContext` to generate antiforgery tokens, gated by `@if (HttpContextAccessor.HttpContext is not null)`. `HttpContext` is bound to the original HTTP request — available during initial render but **null during any re-render inside the SignalR circuit**, including soft-nav between Blazor routes. The natural in-app flow (create event → click "Public event URL" link → land on `/e/{slug}` via Blazor's intercepted `<a>` click) hit this: page rendered without the form. **Fixed**: added `forceLoad: true` to the four internal nav links into `/e/{slug}` and `/e/{slug}/edit-order` (one in `EventCreated.razor`, one in `EventPage.razor`, three in `EditOrder.razor`). Each anchor now has `@onclick:preventDefault @onclick="GoToX"` where `GoToX` calls `Nav.NavigateTo(url, forceLoad: true)`. The fix is a workaround for a deeper architectural issue — see "Planning miss" below.
+
+**Smaller findings (deferred):**
+
+🟡 Endpoint error handling returns raw `Results.BadRequest`/`NotFound`/`Forbid` — generic ASP.NET error pages instead of redirects with friendly messages. Phase 8 polish.
+
+🟡 `IHttpContextAccessor` injected into Blazor components remains structurally fragile (Microsoft's official guidance is against it). The `forceLoad` fix patches the symptom, not the root cause. See "Planning miss" below.
+
+🟡 Edit-link email body uses a relative URL — same shape as `EventService.SendManageLinkEmailAsync`, already on the books as a Phase 5 prerequisite.
+
+🟢 Update endpoint reads `Request.Form` twice (once via `await ReadFormAsync`, once via `Request.Form`). Cached so not a perf issue, just inconsistent. Nit.
+
+🟢 `IsUniqueConstraintViolation` is SQLite-specific. Phase 7 / future-DB concern (already noted on `EventService` from Phase 2.5).
+
+### Planning miss — and what it means for Phase 4
+
+Re-reading the Phase 3 plan's "Decisions confirmed at kickoff", the form-post-to-minimal-API pattern was justified by:
+
+> "keeps state stateless on the server side, avoids the SignalR-circuit / HttpContext.Response mismatch, and stays simple to test directly."
+
+That justification was load-bearing **when we had cookies** (Phase 3 draft, before sign-off): the cookie had to be set via `HttpContext.Response.Cookies.Append`, which doesn't work mid-circuit in Blazor Server. The form-post pattern dodged that.
+
+**Then we dropped the cookie at sign-off** (URL-only edit token). At that point, the form-post pattern's main rationale evaporated — but the pattern stayed in the plan. We didn't re-evaluate whether it was still needed.
+
+The form-post pattern still requires `HttpContext` for antiforgery on initial render — a constraint we **didn't anticipate explicitly** at planning time. Combined with Blazor Server's automatic interception of internal `<a>` clicks (soft-nav with `HttpContext = null`), this manifested as the form silently disappearing in the natural in-app flow.
+
+**The honest read**: this was a planning miss as much as an execution one. Specifically:
+- The form-post pattern was over-engineered once we dropped cookies — interactive Blazor forms with submit handlers calling services directly would have worked, with no antiforgery middleware, no `IHttpContextAccessor`, no soft-nav fragility.
+- The plan didn't specify how internal navigation to form-bearing pages should behave (`forceLoad: true` vs default soft-nav). That gap let Copilot inherit the broken behaviour without realising.
+- "Stays Blazor-rendered, only the submit roundtrip is a plain form post" hand-waved past the antiforgery-token-on-render constraint.
+
+**Implications for Phase 4** (manage page + recover page) — the same seam will bite if we use the same pattern:
+- The manage page has multiple sub-actions (edit event, add/edit/remove meal options, schedule reminder, close event, rotate token). Each as a form-post means multiple endpoints, all with antiforgery, all with `HttpContext`-on-render constraint, all needing `forceLoad` from any internal link.
+- **Recommended Phase 4 approach**: use interactive Blazor forms throughout. The manage token comes in via `[SupplyParameterFromQuery]`; sub-actions are methods on the component that call services directly; navigation between manage views happens in the component or via NavigationManager (no `forceLoad` needed). No antiforgery middleware, no `IHttpContextAccessor` injection. Service methods accept the manage token and verify ownership.
+- This is a *different pattern* from Phase 3 (which is fine — different page shape, different needs), but it's also the pattern Phase 3 should probably converge to eventually. Schedule "Phase 3 simplification: interactive Blazor instead of form-post" as a Phase 8 polish candidate.
+
+Phase 4 plan (when written) should:
+- Make "interactive Blazor forms, manage token via `[SupplyParameterFromQuery]`, services validate ownership" an explicit kickoff decision in §"Decisions confirmed at kickoff".
+- Include a risk note: *"don't repeat the Phase 3 form-post pattern; the soft-nav / HttpContext seam is fragile."*
+- Reference this retro section as the source of the lesson.
