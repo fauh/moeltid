@@ -9,6 +9,7 @@
     <File Path="docs/phases/phase-1-plan.md" />
     <File Path="docs/phases/phase-2-plan.md" />
     <File Path="docs/phases/phase-2.5-plan.md" />
+    <File Path="docs/phases/phase-3-plan.md" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="docs/design.md" />

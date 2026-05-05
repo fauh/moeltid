@@ -1,0 +1,157 @@
+@page "/e/{Slug}/edit-order"
+@using Microsoft.AspNetCore.Antiforgery
+@using Moeltid.Models
+@using Moeltid.Services.Attendances
+@using Moeltid.Services.Events
+@using Moeltid.Services.MealOptions
+@inject IEventService EventService
+@inject IMealOptionService MealOptionService
+@inject IAttendanceService AttendanceService
+@inject IAntiforgery Antiforgery
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager Nav
+
+<PageTitle>Edit order — Consid Måltid</PageTitle>
+
+@if (notFound)
+{
+    <h1>Order not found</h1>
+    <p>This edit link is invalid or has expired.</p>
+    <a href="/e/@Slug" class="btn btn-outline-secondary" @onclick:preventDefault @onclick="GoToEvent">Back to event</a>
+}
+else if (ev is null || attendance is null)
+{
+    <p>Loading…</p>
+}
+else if (ev.IsClosed)
+{
+    <h1>@ev.Title</h1>
+    <div class="alert alert-warning mt-3">This event is closed — orders can no longer be edited.</div>
+    <a href="/e/@Slug" class="btn btn-outline-secondary mt-2" @onclick:preventDefault @onclick="GoToEvent">Back to event</a>
+}
+else
+{
+    <h1>Edit your order for @ev.Title</h1>
+    <p class="text-muted">
+        <a href="/e/@Slug" @onclick:preventDefault @onclick="GoToEvent">← Back to event</a>
+    </p>
+
+    <div class="alert alert-warning">
+        <strong>Don't share this URL</strong> — anyone with it can edit or withdraw your order.
+    </div>
+
+    @if (HttpContextAccessor.HttpContext is not null)
+    {
+        var tokens = Antiforgery.GetAndStoreTokens(HttpContextAccessor.HttpContext);
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h2 class="card-title h5">Update order</h2>
+                <form method="post" action="/e/@Slug/order/@attendance.Id">
+                    <input type="hidden" name="@tokens.FormFieldName" value="@tokens.RequestToken" />
+                    <input type="hidden" name="editToken" value="@EditToken" />
+
+                    @if (mealOptions.Count > 0)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Meal choice <span class="text-danger">*</span></label>
+                            @foreach (var option in mealOptions)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="mealOptionId" value="@option.Id"
+                                           id="opt-@option.Id"
+                                           checked="@(attendance.MealOptionId == option.Id)" required />
+                                    <label class="form-check-label" for="opt-@option.Id">
+                                        @option.Label
+                                        @if (option.Tags != MealTag.None)
+                                        {
+                                            <small class="text-muted ms-1">(@option.Tags)</small>
+                                        }
+                                    </label>
+                                </div>
+                            }
+                            @if (ev.AllowFreeText)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="mealOptionId" value=""
+                                           id="opt-freetext"
+                                           checked="@(attendance.OrderType == OrderType.FreeText)" />
+                                    <label class="form-check-label" for="opt-freetext">Other / write my own</label>
+                                </div>
+                            }
+                        </div>
+                        @if (ev.AllowFreeText)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label" for="freeTextOrder">
+                                    Your order <span class="text-muted">(only when 'Other' is selected)</span>
+                                </label>
+                                <input id="freeTextOrder" name="freeTextOrder" class="form-control" maxlength="500"
+                                       value="@attendance.FreeTextOrder" />
+                            </div>
+                        }
+                    }
+                    else if (ev.AllowFreeText)
+                    {
+                        <input type="hidden" name="mealOptionId" value="" />
+                        <div class="mb-3">
+                            <label class="form-label" for="freeTextOrder">Your order <span class="text-danger">*</span></label>
+                            <input id="freeTextOrder" name="freeTextOrder" class="form-control" required maxlength="500"
+                                   value="@attendance.FreeTextOrder" />
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-3 border-danger">
+            <div class="card-body">
+                <h2 class="card-title h5 text-danger">Withdraw order</h2>
+                <p>Removing your order cannot be undone.</p>
+                <form method="post" action="/e/@Slug/order/@attendance.Id/delete">
+                    <input type="hidden" name="@tokens.FormFieldName" value="@tokens.RequestToken" />
+                    <input type="hidden" name="editToken" value="@EditToken" />
+                    <button type="submit" class="btn btn-outline-danger">Withdraw order</button>
+                </form>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [SupplyParameterFromQuery(Name = "t")] public string? EditToken { get; set; }
+
+    private Event? ev;
+    private Attendance? attendance;
+    private IReadOnlyList<MealOption> mealOptions = [];
+    private bool notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ev = await EventService.GetBySlugAsync(Slug);
+
+        if (ev is null || string.IsNullOrEmpty(EditToken))
+        {
+            notFound = true;
+            return;
+        }
+
+        attendance = await AttendanceService.GetByEditTokenAsync(EditToken);
+
+        if (attendance is null || attendance.EventId != ev.Id)
+        {
+            notFound = true;
+            return;
+        }
+
+        mealOptions = await MealOptionService.ListByEventAsync(ev.Id);
+    }
+
+    // forceLoad is required because /e/{slug} renders a form that depends on
+    // HttpContext (for antiforgery tokens). Soft-nav inside the SignalR circuit
+    // leaves HttpContext null and the form silently fails to render.
+    private void GoToEvent() => Nav.NavigateTo($"/e/{Slug}", forceLoad: true);
+}

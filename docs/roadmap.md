@@ -83,14 +83,31 @@ See `docs/phases/phase-2.5-plan.md` for the task breakdown.
 
 **Exit criteria**: an owner can fully manage their event; lost manage URL can be recovered via email; rotation works.
 
+(Plan: `docs/phases/phase-4-plan.md`. Status: signed off, awaiting executor pickup. Manage-page surface only — creation-time enrichments moved to Phase 4.5.)
+
+---
+
+## Phase 4.5 — Invitations and create-time enrichments
+(Added 2026-05-04 after new requirements surfaced during Phase 4 plan revision. Blocked-by Phase 4 so the manage-page sections can extend it.)
+- [ ] `Invitee` entity + service + migration.
+- [ ] `EventService.CreateAsync` accepts optional meal options and invitee emails, persists transactionally.
+- [ ] `NewEvent.razor` gains a "preset meal options" section and an "invite by email" textarea (comma-separated).
+- [ ] `EventPage.razor` reads `?invite=` (pre-fills email read-only) and renders invited-but-not-ordered rows with "no order yet" flag.
+- [ ] Manage page gains an Invitees section (add / remove with attendance-prompt / status) and a "Send reminder to non-ordered" action.
+- [ ] `IEmailSender` console-stub fires for invite emails and reminder emails (real send lands in Phase 5).
+- [ ] 15 tasks total. See `docs/phases/phase-4.5-plan.md`.
+
+**Exit criteria**: see plan file.
+
 ---
 
 ## Phase 5 — Email and reminders
 - [ ] Pick an email provider (Resend vs Brevo); add config; verify with a test domain.
-- [ ] Replace console-log stubs with real sends: manage link at creation, manage-link recovery, attendee edit link (when email provided).
+- [ ] Replace console-log stubs with real sends: manage link at creation, manage-link recovery, attendee edit link (when email provided), **invitation email at creation (Phase 4.5)**, **"send reminder to non-ordered invitees" trigger (Phase 4.5)**.
 - [ ] Add Hangfire + SQLite storage.
 - [ ] Owner can schedule **one** reminder per event on the manage page (datetime picker; UI prevents scheduling after deadline).
 - [ ] Reminder send: emails attendees who provided email, with a "you have/haven't ordered yet" line.
+- [ ] Resolve relative-vs-absolute URL question for all email bodies (host-aware).
 
 **Exit criteria**: scheduled reminder fires; manage and edit links land in real inboxes.
 
@@ -136,6 +153,7 @@ This is where hosting and deployment land — close to launch, when the app is s
 - [ ] Email domain verified (SPF / DKIM).
 - [ ] Backup plan in place (nightly SQLite snapshot to a remote bucket).
 - [ ] Light per-IP rate limits on event creation, order submission, manage-link recovery.
+- [ ] **Event retention policy**: scheduled job that hard-deletes events + their attendances N days past `Deadline` (working assumption: 90 days; revisit per `design.md` §9). Decision needed before this phase.
 - [ ] `robots.txt`, sitemap if relevant.
 - [ ] Privacy / terms pages — minimum viable.
 - [ ] Production secrets via the host's secret store, not in repo.
