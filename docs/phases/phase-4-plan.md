@@ -100,4 +100,34 @@ Bigger than Phase 2.5 (11), comparable to Phase 3 (17 → 18 with hindsight). Sp
 
 ## What actually happened
 
-_To be filled in at phase end. Per `process.md`, must include: the executor (Claude Code, GitHub Copilot, or other), the actual model(s) run, deviations from plan, surprises, and what to do differently. The Cowork-side Phase Exit review goes here as a peer subsection._
+**Executor**: Claude Code (claude-sonnet-4-5 / claude-haiku-4-5 per task)
+**Completed**: 2026-05-06
+
+### Actual models used
+
+| Task range | Model used | Notes |
+|---|---|---|
+| 4.1–4.3 (service layer) | Sonnet | Service interfaces + implementations; `DeleteByOwnerAsync` used Haiku as planned |
+| 4.4–4.10 (Blazor pages) | Sonnet | All page work done in single session |
+| 4.11–4.13 (tests) | Sonnet | Phase 4 tests; 4.13 (`DeleteByOwnerAsync`) was Haiku-appropriate but done inline |
+| 4.14 (retro) | Haiku | This section |
+
+### Deviations from plan
+
+- **`GetByOwnerEmailAsync` ORDER BY**: initial implementation sorted `DateTimeOffset.CreatedAt` server-side inside the LINQ query, which SQLite rejects. Fixed to materialise first then sort client-side (identical to the `ListByEventAsync` fix in Phase 3). Discovered at test time, not noted as a risk.
+- **EF Core identity map in test**: `MealOptionServiceTests.DeleteAsync_WithDependentAttendances_ConvertsThem` initially verified post-delete state via the `attendanceSvc` DbContext that had created the attendances. Since that context still had the entities tracked with their pre-delete state, the assertions saw stale data. Fixed by adding a fresh `_db.CreateDbContext()` for the verify step. Root cause: test author forgot that LINQ queries against a tracked entity's identity key resolve from the L1 cache, not the DB.
+- **`NullEmailSender` file-scoped class**: `MealOptionServiceTests.cs` references `NullEmailSender` (needed to construct `AttendanceService` in the reassignment test) but that `file sealed class` lives only in `EventServiceTests.cs` and `AttendanceServiceTests.cs`. Added a third copy to `MealOptionServiceTests.cs`. Not a design issue — the three test files each need their own due to the `file` access modifier.
+
+### Surprises
+
+- The Blazor manage page (`ManageEvent.razor`) ended up quite long (~300 lines). Task 4.6 (meal options inline edit) was the densest section, consistent with the plan's **L** sizing. No surprises in complexity, just volume.
+- The Phase 3 hard rule ("no `IHttpContextAccessor`, no form-post") held cleanly throughout; no temptation to reach for it. Having it explicit in §Decisions paid off.
+
+### Things to do differently
+
+- **Test against fresh contexts by default** when verifying cross-service state. Using the originating service's DbContext for post-mutation reads silently returns stale data. The pattern should be: seed via `_db.CreateDbContext()`, act via `_sut`, verify via another `_db.CreateDbContext()` — or at least be explicit when deviating.
+- **Check for SQLite ORDER BY on `DateTimeOffset`** in any new service method that sorts before it reaches tests. It's a known footgun; should be caught in code review, not by a red test.
+
+### Phase Exit review
+
+Phase Exit review not yet performed by Cowork (Phase 4.5 execution is next in queue). Deferred — same as Phase 3's gap. Wilhelm is aware; review before Phase 4.5 starts if timing allows.

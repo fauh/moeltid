@@ -59,6 +59,52 @@ public class EventService(
     public Task<Event?> GetBySlugAsync(string slug) =>
         db.Events.FirstOrDefaultAsync(e => e.Slug == slug);
 
+    public async Task<Event> UpdateAsync(Guid id, UpdateEventRequest request)
+    {
+        var ev = await db.Events.FindAsync(id)
+            ?? throw new InvalidOperationException($"Event {id} not found.");
+
+        ev.Title = request.Title.Trim();
+        ev.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        ev.StartsAt = TimeZoneHelper.ToUtc(request.StartsAt, request.TimeZoneId);
+        ev.Deadline = TimeZoneHelper.ToUtc(request.Deadline, request.TimeZoneId);
+        ev.TimeZoneId = request.TimeZoneId;
+        ev.AllowFreeText = request.AllowFreeText;
+        ev.AttendeeOrdersVisible = request.AttendeeOrdersVisible;
+
+        await db.SaveChangesAsync();
+        return ev;
+    }
+
+    public async Task<Event> CloseAsync(Guid id)
+    {
+        var ev = await db.Events.FindAsync(id)
+            ?? throw new InvalidOperationException($"Event {id} not found.");
+
+        ev.IsClosed = true;
+        await db.SaveChangesAsync();
+        return ev;
+    }
+
+    public async Task<string> RotateManageTokenAsync(Guid id)
+    {
+        var ev = await db.Events.FindAsync(id)
+            ?? throw new InvalidOperationException($"Event {id} not found.");
+
+        ev.ManageToken = tokenGenerator.RandomUrlSafeString(22);
+        await db.SaveChangesAsync();
+        return ev.ManageToken;
+    }
+
+    public async Task<IReadOnlyList<Event>> GetByOwnerEmailAsync(string email)
+    {
+        var normalised = email.Trim().ToLowerInvariant();
+        var list = await db.Events
+            .Where(e => e.OwnerEmail == normalised)
+            .ToListAsync();
+        return [.. list.OrderByDescending(e => e.CreatedAt)];
+    }
+
     private async Task SendManageLinkEmailAsync(Event ev)
     {
         var managePath = $"/e/{ev.Slug}/manage?t={ev.ManageToken}";

@@ -1,0 +1,92 @@
+@page "/e/{Slug}/manage/recover"
+@using Moeltid.Services.Email
+@using Moeltid.Services.Events
+@inject IEventService EventService
+@inject IEmailSender EmailSender
+@inject NavigationManager Nav
+
+<PageTitle>Recover manage link — Consid Måltid</PageTitle>
+
+<h1>Recover manage link</h1>
+<p>Enter the email address you used when creating the event. If it matches, we'll send you the manage link.</p>
+
+@if (submitted)
+{
+    <div class="alert alert-success">
+        If your email matches the event owner email, you'll receive the manage link shortly.
+    </div>
+    <a href="/e/@Slug">Back to event</a>
+}
+else
+{
+    @if (error is not null)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3" style="max-width:400px">
+            <label class="form-label" for="email">Owner email <span class="text-danger">*</span></label>
+            <InputText id="email" class="form-control" type="email" @bind-Value="model.Email" />
+            <ValidationMessage For="() => model.Email" />
+        </div>
+
+        <button type="submit" class="btn btn-primary" disabled="@sending">
+            @(sending ? "Sending…" : "Send manage link")
+        </button>
+        <a href="/e/@Slug/manage?t=" class="btn btn-link ms-2">Back</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private readonly RecoverModel model = new();
+    private bool submitted;
+    private bool sending;
+    private string? error;
+
+    private async Task SubmitAsync()
+    {
+        sending = true;
+        error = null;
+        try
+        {
+            var ev = await EventService.GetBySlugAsync(Slug);
+
+            // Always show the same success message — don't leak whether the event exists
+            // or whether the email matched.
+            if (ev is not null &&
+                string.Equals(ev.OwnerEmail, model.Email!.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                var manageUrl = Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
+                var subject = $"Your manage link for \"{ev.Title}\"";
+                var body = $"""
+                    Hi {ev.OwnerName},
+
+                    Here is your manage link for "{ev.Title}":
+                    {manageUrl}
+
+                    Save this — share it with co-admins. Anyone with the link can manage the event.
+                    """;
+                await EmailSender.SendAsync(ev.OwnerEmail, subject, body);
+            }
+
+            submitted = true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Something went wrong: {ex.Message}";
+        }
+        finally { sending = false; }
+    }
+
+    private sealed class RecoverModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string? Email { get; set; }
+    }
+}

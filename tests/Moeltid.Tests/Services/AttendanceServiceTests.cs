@@ -202,6 +202,27 @@ public class AttendanceServiceTests : IClassFixture<InMemoryDatabaseFixture>
         after.ShouldBeNull();
     }
 
+    // ── DeleteByOwnerAsync ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteByOwnerAsync_RemovesAttendance()
+    {
+        var eventId = await SeedEventAsync();
+        var created = await _sut.CreateAsync(FreeTextRequest(eventId));
+
+        await _sut.DeleteByOwnerAsync(created.Id);
+
+        var after = await _sut.GetByEditTokenAsync(created.EditToken);
+        after.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteByOwnerAsync_UnknownId_Throws()
+    {
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            _sut.DeleteByOwnerAsync(Guid.NewGuid()));
+    }
+
     // ── ListByEventAsync ─────────────────────────────────────────────────────
 
     [Fact]

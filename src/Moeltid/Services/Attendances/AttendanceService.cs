@@ -79,6 +79,17 @@ public class AttendanceService(
         await db.SaveChangesAsync();
     }
 
+    public async Task DeleteByOwnerAsync(Guid attendanceId)
+    {
+        var attendance = await db.Attendances.FindAsync(attendanceId)
+            ?? throw new InvalidOperationException($"Attendance {attendanceId} not found.");
+
+        logger.LogInformation("Owner deleted attendance {AttendanceId} for event {EventId}.",
+            attendanceId, attendance.EventId);
+        db.Attendances.Remove(attendance);
+        await db.SaveChangesAsync();
+    }
+
     public async Task<IReadOnlyList<Attendance>> ListByEventAsync(Guid eventId)
     {
         var list = await db.Attendances
