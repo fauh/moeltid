@@ -149,7 +149,8 @@ Notes:
 | `/e/{slug}` | anyone with the link | Public event page: attendee signup, meal ordering. Shows others' orders if `AttendeeOrdersVisible`. Optional `?invite={inviteeId}` query param pre-fills the email field read-only when arriving via an emailed invite link. |
 | `/e/{slug}/edit-order` | attendee with edit token (cookie or `?t=` from email) | Edit or withdraw your own order. |
 | `/e/{slug}/manage` | manage-token holder (`?t=` in URL) | Owner manage page. Token validated on every request. |
-| `/e/{slug}/manage/recover` | anyone | Form to request the manage link emailed to the owner. Rate-limited per IP and per email. |
+| `/recover` | anyone | Top-level form to request manage link(s) emailed to the owner. Looks up by owner email; one email per matching event. Discoverable from the landing page. Rate-limited per IP and per email (Phase 8). |
+| `/e/{slug}/manage/recover` | (legacy) | Redirect stub to `/recover` since 2026-05-06. Kept for inbound bookmarks; safe to delete once those are confirmed dead. |
 
 ## 7. Deployment plan
 
@@ -220,6 +221,7 @@ Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at 
 - [ ] **Event-creation rate-limit** — *working assumption*: 10 events / hour / IP. **Confirm before Phase 8.**
 - [ ] **Public-page attendee visibility default** — confirmed default on, but should we display *names only* or *names + orders* when the toggle is off? *Working assumption*: names only (so an attendee can see how many people are coming without seeing what they're eating). Could also be "nothing visible to other attendees". **Confirm before Phase 3.**
 - [ ] **Event retention policy** *(raised at Phase 4 sign-off, 2026-05-04)* — events are short-lived by design; data shouldn't accumulate forever. Open questions: how long after the deadline does an event live? what's deleted at retention end (the whole event including attendances, or just orders)? does the owner get notified before deletion? *Working assumption*: hard-delete the event and its attendances 90 days after `Deadline`, no warning email. Possibly a warning email at 75 days if email-sending exists by then. **Confirm before Phase 9.** Lives with the other production-hardening work (rate limits, backups, domain) in Phase 9.
+- [ ] **Events listing / discovery** *(raised 2026-05-06)* — placeholder for a Phase 6.5 enhancement that gives users a way to find events they're part of without keeping the URLs. Tension: the v1 model says events aren't browseable. *Working assumption*: per-email lookup page (typed email returns events with that owner email; doesn't differentiate match from miss; same privacy posture as `/recover`). Open: owner events only vs attendee events too; what counts as "ongoing"; whether to require an email-confirmation step before showing the list. **Confirm at Phase 6.5 kickoff.**
 
 ## 10. Roadmap pointer
 

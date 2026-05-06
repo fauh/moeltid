@@ -122,6 +122,26 @@ See `docs/phases/phase-2.5-plan.md` for the task breakdown.
 
 ---
 
+## Phase 6.5 — Events listing / discovery
+*(Added 2026-05-06 as a deferred enhancement. Acknowledged as scope creep; included because it adds real usability. Detailed design deferred to phase kickoff — placeholder only here.)*
+
+The motivation: today the only way for a user to find an event they're part of is to keep the URL. Lose the URL → use the recover flow (for events you own) or you're stuck (for events you've ordered). A discovery list page would give users a way back into events without needing to re-find URLs.
+
+**Design tension to resolve at planning time**: the v1 design model says events are *not* browseable — they're accessed via shared link only. A "list events" page must respect that. Likely shape: a per-email lookup page (similar to /recover but rendered as a list), showing the events tied to an entered email. Open questions:
+
+- "Ongoing" — events past their `Deadline`? Past `StartsAt`? Not closed? Some combination?
+- Owner events only, or attendee events too (joining `Attendance.Email`)?
+- How to authenticate the lookup — just typing the email, or some confirmation step (e.g. one-time email link)? The plain-typed version risks anyone listing anyone's events.
+- Where it sits in the navigation — landing-page link next to "Lost your manage link?", or a deeper page?
+
+Working assumption (subject to revisit): a `/my-events` page reachable from the landing page, requiring email entry. Returns events where owner email matches, ordered by deadline. Doesn't reveal slug existence for unmatched emails (same generic-success pattern as recover).
+
+**Tasks**: TBD at phase kickoff. Likely small — extends `EventService.GetByOwnerEmailAsync` (already exists) with a list view.
+
+**Phase placement rationale**: between Phase 6 (CSV export — last v1 core feature) and Phase 7 (Deploy infrastructure) since this is purely additive UX with no new infrastructure. Could be cut without breaking v1 if scope tightens.
+
+---
+
 ## Phase 7 — Deploy infrastructure
 This is where hosting and deployment land — close to launch, when the app is stable enough to be worth deploying. Splits cleanly from Phase 8 (production launch) so that "we have a host that runs the app" and "we have a polished public service" are two reviewable steps.
 - [ ] Multi-stage `Dockerfile` (SDK 10 build → `aspnet:10.0-alpine` runtime, non-root user, healthcheck endpoint, correct `ASPNETCORE_URLS` binding).

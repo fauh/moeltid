@@ -128,6 +128,59 @@ Bigger than Phase 2.5 (11), comparable to Phase 3 (17 → 18 with hindsight). Sp
 - **Test against fresh contexts by default** when verifying cross-service state. Using the originating service's DbContext for post-mutation reads silently returns stale data. The pattern should be: seed via `_db.CreateDbContext()`, act via `_sut`, verify via another `_db.CreateDbContext()` — or at least be explicit when deviating.
 - **Check for SQLite ORDER BY on `DateTimeOffset`** in any new service method that sorts before it reaches tests. It's a known footgun; should be caught in code review, not by a red test.
 
-### Phase Exit review
+### Phase Exit review (Cowork-side, 2026-05-06)
 
-Phase Exit review not yet performed by Cowork (Phase 4.5 execution is next in queue). Deferred — same as Phase 3's gap. Wilhelm is aware; review before Phase 4.5 starts if timing allows.
+Performed retroactively after Wilhelm flagged that the recover flow was unreachable from the landing page. The executor's original retro had written "Phase Exit review not yet performed… Deferred" — a process violation now explicitly forbidden by `process.md` §"Phase exit — the two-tool review pattern" ("the review pass is not deferrable by the executor"). The phase reopened to apply this review and the resulting fixes.
+
+#### Per-task verification (retroactive)
+
+| #    | Task                                                  | Status | Artifact                                                                                                                        |
+| ---- | ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1  | `IEventService` manage methods                        | ✓      | `Services/Events/EventService.cs` — `UpdateAsync`, `CloseAsync`, `RotateManageTokenAsync`, `GetByOwnerEmailAsync`                |
+| 4.2  | `IMealOptionService` CRUD + reassignment              | ✓      | `Services/MealOptions/MealOptionService.cs`                                                                                     |
+| 4.3  | `IAttendanceService.DeleteByOwnerAsync`               | ✓      | `Services/Attendances/AttendanceService.cs`                                                                                     |
+| 4.4  | Manage page route + invalid-link view + URL panel     | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.5  | Edit-event subform                                    | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.6  | Meal options section (list + add + edit + delete)     | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.7  | Orders view + per-row delete                          | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.8  | Close-event toggle                                    | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.9  | Rotate-token (two-step confirmation)                  | ✓      | `Pages/ManageEvent.razor`                                                                                                       |
+| 4.10 | Recover-link page                                     | ✗ → ✓  | **Originally wrong — implemented as `/e/{slug}/manage/recover` with slug-based `GetBySlugAsync` + email match. Plan was internally inconsistent (task notes said slug-based; Risks + sign-off answer said email-based via `GetByOwnerEmailAsync`). Fixed in this review pass:** new `Pages/Recover.razor` at `/recover` using `GetByOwnerEmailAsync`. `Pages/ManageRecover.razor` retained as redirect stub. `Index.razor` gains a "Lost your manage link?" link. `ManageEvent.razor` invalid-link view links to `/recover`. |
+| 4.11 | EventService manage-method tests                      | ✓      | `tests/.../EventServiceTests.cs`                                                                                                |
+| 4.12 | MealOptionService CRUD + reassignment tests           | ✓      | `tests/.../MealOptionServiceTests.cs`                                                                                           |
+| 4.13 | AttendanceService.DeleteByOwnerAsync tests            | ✓      | `tests/.../AttendanceServiceTests.cs`                                                                                           |
+| 4.14 | Retro + change_log + docs                             | ✓      | this file + `change_log.md`                                                                                                     |
+
+#### Findings
+
+🔴 **Recover flow was both unreachable from the landing AND wired to the wrong lookup.** Combined fix in this review pass — see task 4.10 row above.
+
+🟡 **The Phase 4 plan was internally inconsistent.** Task 4.10's notes specified slug-based lookup; the Risks section's `GetByOwnerEmailAsync` note and Wilhelm's sign-off answer to question 5 both specified email-based. The executor implemented the task notes; design intent shipped wrong. Captured as a planning lesson in `process.md` — new "Plan internal-consistency rule" added 2026-05-06.
+
+🟡 **Phase Exit review was deferred by the executor in the retro.** This is now explicitly forbidden in `process.md` §"Phase exit" — the review pass is not deferrable; either it's been performed or the phase remains in_progress. Reinforced with the receipts here.
+
+🟡 **Per-task verification table was missing from the original retro.** Rule was added 2026-05-04 (before Phase 4 closed 2026-05-06) but not applied. Per-task tick added retroactively above. Rule re-emphasised; expected on Phase 4.5 onwards from the start.
+
+#### Things to do differently (added at review pass)
+
+- Plans must be scanned for internal contradictions before lock. Three different versions of the recover flow appeared in one plan file; that's the planning failure mode the new internal-consistency rule guards against.
+- "Deferred" is not a valid value for the Phase Exit review section in a phase retro. The executor flags it as missing; closure waits for Cowork.
+- The per-task tick table is non-optional. Without it, a plan miss like task 4.10 (artifact exists but wired wrong) is invisible to readers downstream.
+
+#### Additional findings from the full Phase 4 surface review (2026-05-06)
+
+After the recover-route fix landed, Cowork did a thorough pass over every Phase 4 deliverable. Findings beyond the recover gap:
+
+- 🟡 **New-meal-option form was missing tag selection** (line 170 of `ManageEvent.razor`). `AddOptionAsync` hardcoded `MealTag.None`; owners could only set tags by adding-then-editing. Plan task 4.6 said "Add-option form below the list" without explicit mention of tags, but the design intent (tags are a `MealOption` property; the edit form supports them) was clearly violated. ✅ **FIXED** in this review pass: tag-checkbox row added under the label input; `newOptionTags` field + `ToggleNewTag` helper mirror the edit-mode pattern; `AddOptionAsync` now uses `newOptionTags` and resets to `None` after add.
+- 🟢 **Token validation uses non-constant-time string equality** (line 313): `tokenValid = ev is not null && Token == ev.ManageToken`. Theoretically vulnerable to timing attacks; practical risk over the public internet is negligible (network jitter dominates). Pre-Phase 9 (production launch) prereq — swap to `CryptographicOperations.FixedTimeEquals`. Deferred.
+- 🟢 **Edit form uses inline `if`-check for deadline-vs-StartsAt** (line 345) instead of `IValidatableObject`. Plan task 4.5 said "Same `IValidatableObject` for deadline-vs-StartsAt rule (mirrors `NewEvent.razor`)". Functionally equivalent; stylistically inconsistent. Phase 8 polish if at all.
+- 🟢 **Token-rotation flow relies on EF tracking semantics** for the page to reflect the new token. Works today because `ev` and the entity `EventService.RotateManageTokenAsync` mutates are the same tracked instance. Fragile to refactoring. Defensive fix would be `ev = await EventService.GetByIdAsync(ev.Id);` after the rotate. Deferred.
+- 🟢 **No service-level validation of deadline-vs-StartsAt** in `EventService.UpdateAsync`. The form catches it at the page; calling the service directly with bad data persists. Same gap inherited from earlier services. Defer.
+- 🟢 **Long-standing test typo persists**: `CreateAsync_UtcTimeZone_StoresStaratsAtAsUtc` (`EventServiceTests` line 81) — Phase 2.5 review flagged this; never fixed. Cosmetic.
+
+#### What went well in Phase 4 (for the carry-forward to 4.5+)
+
+- The hard rules from §Decisions held cleanly throughout: interactive Blazor, no antiforgery middleware, no `IHttpContextAccessor` injection. Phase 3's seam stayed paid down. Worth replicating verbatim in Phase 4.5.
+- Meal-option deletion-with-conversion is well-implemented — single context, single `SaveChangesAsync`, transactional. The test (with the fresh-context verify pattern) is also solid. This is the reference pattern for non-trivial transactional logic.
+- Two-step pure-Blazor confirmations on close + rotate. Reuse this pattern for any "danger zone" action in Phase 4.5 (especially the send-reminders trigger).
+- Test coverage matched plan estimates per service file; per-task tick now anchors each artifact concretely.
