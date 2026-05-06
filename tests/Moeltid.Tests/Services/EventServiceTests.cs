@@ -137,6 +137,84 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
         found.ShouldNotBeNull();
         found!.Slug.ShouldBe(created.Slug);
     }
+
+    // ── manage methods ───────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_ChangesFields()
+    {
+        var created = await _sut.CreateAsync(MakeRequest(title: "Original"));
+
+        var updated = await _sut.UpdateAsync(created.Id, new UpdateEventRequest(
+            Title: "Updated Title",
+            Description: "New desc",
+            StartsAt: new DateTime(2026, 7, 1, 12, 0, 0),
+            Deadline: new DateTime(2026, 6, 30, 12, 0, 0),
+            TimeZoneId: "UTC",
+            AllowFreeText: false,
+            AttendeeOrdersVisible: false));
+
+        updated.Title.ShouldBe("Updated Title");
+        updated.Description.ShouldBe("New desc");
+        updated.AllowFreeText.ShouldBeFalse();
+        updated.AttendeeOrdersVisible.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task CloseAsync_SetsIsClosed()
+    {
+        var created = await _sut.CreateAsync(MakeRequest(title: "Event To Close"));
+        created.IsClosed.ShouldBeFalse();
+
+        var closed = await _sut.CloseAsync(created.Id);
+
+        closed.IsClosed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task RotateManageTokenAsync_ReturnsNewToken()
+    {
+        var created = await _sut.CreateAsync(MakeRequest(title: "Token Rotation"));
+        var originalToken = created.ManageToken;
+
+        var newToken = await _sut.RotateManageTokenAsync(created.Id);
+
+        newToken.ShouldNotBe(originalToken);
+        newToken.Length.ShouldBe(22);
+    }
+
+    [Fact]
+    public async Task RotateManageTokenAsync_OldTokenNoLongerOnEvent()
+    {
+        var created = await _sut.CreateAsync(MakeRequest(title: "Token Rotation Check"));
+        var originalToken = created.ManageToken;
+
+        await _sut.RotateManageTokenAsync(created.Id);
+        var reloaded = await _sut.GetByIdAsync(created.Id);
+
+        reloaded!.ManageToken.ShouldNotBe(originalToken);
+    }
+
+    [Fact]
+    public async Task GetByOwnerEmailAsync_ReturnsMatchingEvents()
+    {
+        await _sut.CreateAsync(MakeRequest(title: "Email Match 1", ownerEmail: "find-me@example.com"));
+        await _sut.CreateAsync(MakeRequest(title: "Email Match 2", ownerEmail: "FIND-ME@EXAMPLE.COM"));
+        await _sut.CreateAsync(MakeRequest(title: "Other owner", ownerEmail: "other@example.com"));
+
+        var results = await _sut.GetByOwnerEmailAsync("find-me@example.com");
+
+        results.ShouldAllBe(e => e.OwnerEmail == "find-me@example.com");
+        results.Count.ShouldBeGreaterThanOrEqualTo(2);
+    }
+
+    [Fact]
+    public async Task GetByOwnerEmailAsync_UnknownEmail_ReturnsEmpty()
+    {
+        var results = await _sut.GetByOwnerEmailAsync("nobody@nowhere.invalid");
+
+        results.ShouldBeEmpty();
+    }
 }
 
 file sealed class NullEmailSender : IEmailSender

@@ -1,0 +1,460 @@
+@page "/e/{Slug}/manage"
+@using Moeltid.Models
+@using Moeltid.Services.Attendances
+@using Moeltid.Services.Events
+@using Moeltid.Services.MealOptions
+@using static Moeltid.Services.TimeZoneHelper
+@inject IEventService EventService
+@inject IMealOptionService MealOptionService
+@inject IAttendanceService AttendanceService
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Manage — @(ev?.Title ?? "Event") — Consid Måltid</PageTitle>
+
+@if (!tokenValid)
+{
+    <h1>Invalid manage link</h1>
+    <p>This link is invalid or has expired. Check that you copied the full URL.</p>
+    <p><a href="/e/@Slug/manage/recover">Request a new manage link</a></p>
+}
+else if (ev is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <!-- Manage URL panel -->
+    <div class="alert alert-secondary mb-4">
+        <strong>Your manage link:</strong>
+        <code class="ms-2 user-select-all">@ManageUrl</code>
+        <small class="d-block mt-1 text-muted">Save this — share with co-admins. Anyone with the link can manage this event.</small>
+    </div>
+
+    <h1>@ev.Title <small class="text-muted fs-5">— manage</small></h1>
+    <p><a href="/e/@Slug">← Public event page</a></p>
+
+    @if (ev.IsClosed)
+    {
+        <div class="alert alert-warning">This event is closed. Orders are no longer accepted.</div>
+    }
+
+    <!-- ── Edit event details ──────────────────────────────────────────── -->
+    <section class="mt-4">
+        <h2 class="h4">Event details</h2>
+
+        @if (detailsSaved)
+        {
+            <div class="alert alert-success py-2">Changes saved.</div>
+        }
+        @if (detailsError is not null)
+        {
+            <div class="alert alert-danger py-2">@detailsError</div>
+        }
+
+        <EditForm Model="editModel" OnValidSubmit="SaveDetailsAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Title <span class="text-danger">*</span></label>
+                <InputText class="form-control" @bind-Value="editModel.Title" />
+                <ValidationMessage For="() => editModel.Title" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <InputTextArea class="form-control" rows="3" @bind-Value="editModel.Description" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Event date &amp; time <span class="text-danger">*</span></label>
+                <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="editModel.StartsAt" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Order deadline <span class="text-danger">*</span></label>
+                <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="editModel.Deadline" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Time zone</label>
+                <InputText class="form-control" @bind-Value="editModel.TimeZoneId" />
+                <small class="form-text text-muted">IANA time zone ID, e.g. <code>Europe/Stockholm</code></small>
+            </div>
+            <div class="form-check mb-2">
+                <InputCheckbox class="form-check-input" id="allowFreeText" @bind-Value="editModel.AllowFreeText" />
+                <label class="form-check-label" for="allowFreeText">Allow free-text orders</label>
+            </div>
+            <div class="form-check mb-3">
+                <InputCheckbox class="form-check-input" id="ordersVisible" @bind-Value="editModel.AttendeeOrdersVisible" />
+                <label class="form-check-label" for="ordersVisible">Attendee orders visible to all</label>
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@savingDetails">
+                @(savingDetails ? "Saving…" : "Save changes")
+            </button>
+        </EditForm>
+    </section>
+
+    <!-- ── Meal options ───────────────────────────────────────────────── -->
+    <section class="mt-5">
+        <h2 class="h4">Meal options</h2>
+
+        @if (optionError is not null)
+        {
+            <div class="alert alert-danger py-2">@optionError</div>
+        }
+
+        @if (mealOptions.Count == 0)
+        {
+            <p class="text-muted">No preset options — attendees order via free text.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead><tr><th>Label</th><th>Tags</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var opt in mealOptions)
+                    {
+                        @if (editingOptionId == opt.Id)
+                        {
+                            <tr>
+                                <td><input class="form-control form-control-sm" @bind="editOptionLabel" /></td>
+                                <td>
+                                    @foreach (var tag in AllTags)
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" id="tag-@tag"
+                                                   checked="@(editOptionTags.HasFlag(tag))"
+                                                   @onchange="e => ToggleTag(tag, (bool)e.Value!)" />
+                                            <label class="form-check-label" for="tag-@tag">@tag</label>
+                                        </div>
+                                    }
+                                </td>
+                                <td class="text-nowrap">
+                                    <button class="btn btn-sm btn-success me-1" @onclick="() => SaveOptionAsync(opt.Id)">Save</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="CancelOptionEdit">Cancel</button>
+                                </td>
+                            </tr>
+                        }
+                        else if (confirmDeleteOptionId == opt.Id)
+                        {
+                            var depCount = DependentAttendanceCount(opt.Id);
+                            <tr class="table-warning">
+                                <td colspan="2">
+                                    <strong>Delete "@opt.Label"?</strong>
+                                    @if (depCount > 0)
+                                    {
+                                        <span class="ms-1 text-danger">
+                                            @depCount attendee@(depCount == 1 ? "" : "s") ordered this — their orders will be converted to free-text with the label as the text.
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-nowrap">
+                                    <button class="btn btn-sm btn-danger me-1" @onclick="() => DeleteOptionAsync(opt.Id)">Confirm</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => confirmDeleteOptionId = null">Cancel</button>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td>@opt.Label</td>
+                                <td><small class="text-muted">@(opt.Tags == MealTag.None ? "—" : opt.Tags.ToString())</small></td>
+                                <td class="text-nowrap">
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartOptionEdit(opt)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => confirmDeleteOptionId = opt.Id">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="mt-3 d-flex gap-2 align-items-end">
+            <div>
+                <label class="form-label mb-1">New option label</label>
+                <input class="form-control form-control-sm" style="width:220px" @bind="newOptionLabel" placeholder="e.g. Vegetarian pasta" />
+            </div>
+            <button class="btn btn-sm btn-outline-primary" @onclick="AddOptionAsync"
+                    disabled="@string.IsNullOrWhiteSpace(newOptionLabel)">Add</button>
+        </div>
+    </section>
+
+    <!-- ── Attendee orders ────────────────────────────────────────────── -->
+    <section class="mt-5">
+        <h2 class="h4">Orders (@attendances.Count)</h2>
+
+        @if (attendances.Count == 0)
+        {
+            <p class="text-muted">No orders yet.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Order</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in attendances)
+                    {
+                        <tr>
+                            <td>@a.Name</td>
+                            <td class="text-muted"><small>@(a.Email ?? "—")</small></td>
+                            <td>
+                                @if (a.OrderType == OrderType.FreeText)
+                                { @a.FreeTextOrder }
+                                else
+                                { @a.MealOption?.Label }
+                            </td>
+                            <td class="text-muted"><small>@ToLocalString(a.SubmittedAt, ev.TimeZoneId, "g")</small></td>
+                            <td>
+                                @if (confirmDeleteAttendanceId == a.Id)
+                                {
+                                    <span>
+                                        <button class="btn btn-sm btn-danger me-1" @onclick="() => DeleteAttendanceAsync(a.Id)">Confirm delete</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => confirmDeleteAttendanceId = null">Cancel</button>
+                                    </span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => confirmDeleteAttendanceId = a.Id">Delete</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    <!-- ── Danger zone ────────────────────────────────────────────────── -->
+    <section class="mt-5 border border-danger rounded p-3">
+        <h2 class="h4 text-danger">Danger zone</h2>
+
+        <!-- Close event -->
+        <div class="mb-4">
+            <h3 class="h6">Close event</h3>
+            @if (ev.IsClosed)
+            {
+                <p class="text-muted mb-0">This event is already closed. Closing is permanent in v1.</p>
+            }
+            else if (confirmClose)
+            {
+                <p>Close this event? <strong>Attendees will no longer be able to submit or edit orders.</strong> This cannot be undone.</p>
+                <button class="btn btn-danger me-2" @onclick="CloseEventAsync">Yes, close event</button>
+                <button class="btn btn-outline-secondary" @onclick="() => confirmClose = false">Cancel</button>
+            }
+            else
+            {
+                <button class="btn btn-outline-danger" @onclick="() => confirmClose = true">Close event</button>
+            }
+        </div>
+
+        <!-- Rotate manage token -->
+        <div>
+            <h3 class="h6">Rotate manage token</h3>
+            @if (rotateConfirm)
+            {
+                <p>Generate a new manage token? <strong>All previously shared manage URLs (including this one) will stop working immediately.</strong></p>
+                <button class="btn btn-danger me-2" @onclick="RotateTokenAsync">Yes, rotate token</button>
+                <button class="btn btn-outline-secondary" @onclick="() => rotateConfirm = false">Cancel</button>
+            }
+            else
+            {
+                <p class="text-muted small">Use this if the manage URL was leaked or a co-admin should lose access.</p>
+                <button class="btn btn-outline-danger" @onclick="() => rotateConfirm = true">Rotate manage token</button>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+    [SupplyParameterFromQuery(Name = "t")] public string? Token { get; set; }
+
+    private Event? ev;
+    private bool tokenValid;
+    private IReadOnlyList<MealOption> mealOptions = [];
+    private IReadOnlyList<Attendance> attendances = [];
+
+    private string ManageUrl => ev is null ? string.Empty
+        : Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
+
+    // ── details edit state ──
+    private readonly EditEventModel editModel = new();
+    private bool savingDetails;
+    private bool detailsSaved;
+    private string? detailsError;
+
+    // ── option edit / delete state ──
+    private Guid? editingOptionId;
+    private string editOptionLabel = string.Empty;
+    private MealTag editOptionTags;
+    private Guid? confirmDeleteOptionId;
+    private string newOptionLabel = string.Empty;
+    private string? optionError;
+
+    // ── attendance delete state ──
+    private Guid? confirmDeleteAttendanceId;
+
+    // ── danger zone state ──
+    private bool confirmClose;
+    private bool rotateConfirm;
+
+    private static readonly MealTag[] AllTags =
+        [MealTag.Drink, MealTag.Fish, MealTag.Vegetarian, MealTag.Vegan];
+
+    protected override async Task OnInitializedAsync()
+    {
+        ev = await EventService.GetBySlugAsync(Slug);
+        tokenValid = ev is not null && Token == ev.ManageToken;
+        if (!tokenValid) return;
+
+        await RefreshDataAsync();
+        PopulateEditModel();
+    }
+
+    private async Task RefreshDataAsync()
+    {
+        mealOptions = await MealOptionService.ListByEventAsync(ev!.Id);
+        attendances = await AttendanceService.ListByEventAsync(ev.Id);
+    }
+
+    private void PopulateEditModel()
+    {
+        if (ev is null) return;
+        editModel.Title = ev.Title;
+        editModel.Description = ev.Description;
+        editModel.StartsAt = TimeZoneInfo.ConvertTime(ev.StartsAt,
+            SafeGetTz(ev.TimeZoneId)).DateTime;
+        editModel.Deadline = TimeZoneInfo.ConvertTime(ev.Deadline,
+            SafeGetTz(ev.TimeZoneId)).DateTime;
+        editModel.TimeZoneId = ev.TimeZoneId;
+        editModel.AllowFreeText = ev.AllowFreeText;
+        editModel.AttendeeOrdersVisible = ev.AttendeeOrdersVisible;
+    }
+
+    private async Task SaveDetailsAsync()
+    {
+        detailsSaved = false;
+        detailsError = null;
+
+        if (editModel.Deadline >= editModel.StartsAt)
+        {
+            detailsError = "Order deadline must be before the event date.";
+            return;
+        }
+
+        savingDetails = true;
+        try
+        {
+            ev = await EventService.UpdateAsync(ev!.Id, new UpdateEventRequest(
+                editModel.Title!, editModel.Description,
+                editModel.StartsAt, editModel.Deadline,
+                editModel.TimeZoneId ?? "UTC",
+                editModel.AllowFreeText, editModel.AttendeeOrdersVisible));
+            detailsSaved = true;
+        }
+        catch (Exception ex)
+        {
+            detailsError = $"Save failed: {ex.Message}";
+        }
+        finally { savingDetails = false; }
+    }
+
+    // ── meal option helpers ──
+
+    private int DependentAttendanceCount(Guid optionId) =>
+        attendances.Count(a => a.MealOptionId == optionId);
+
+    private void StartOptionEdit(MealOption opt)
+    {
+        editingOptionId = opt.Id;
+        editOptionLabel = opt.Label;
+        editOptionTags = opt.Tags;
+        confirmDeleteOptionId = null;
+    }
+
+    private void CancelOptionEdit()
+    {
+        editingOptionId = null;
+        optionError = null;
+    }
+
+    private void ToggleTag(MealTag tag, bool on)
+    {
+        editOptionTags = on ? (editOptionTags | tag) : (editOptionTags & ~tag);
+    }
+
+    private async Task SaveOptionAsync(Guid optionId)
+    {
+        optionError = null;
+        if (string.IsNullOrWhiteSpace(editOptionLabel)) { optionError = "Label is required."; return; }
+        await MealOptionService.UpdateAsync(optionId, editOptionLabel, editOptionTags);
+        editingOptionId = null;
+        mealOptions = await MealOptionService.ListByEventAsync(ev!.Id);
+    }
+
+    private async Task AddOptionAsync()
+    {
+        optionError = null;
+        if (string.IsNullOrWhiteSpace(newOptionLabel)) return;
+        await MealOptionService.CreateAsync(ev!.Id, newOptionLabel, MealTag.None);
+        newOptionLabel = string.Empty;
+        mealOptions = await MealOptionService.ListByEventAsync(ev.Id);
+    }
+
+    private async Task DeleteOptionAsync(Guid optionId)
+    {
+        optionError = null;
+        await MealOptionService.DeleteAsync(optionId);
+        confirmDeleteOptionId = null;
+        await RefreshDataAsync(); // attendances may have changed too
+    }
+
+    // ── attendance helpers ──
+
+    private async Task DeleteAttendanceAsync(Guid attendanceId)
+    {
+        await AttendanceService.DeleteByOwnerAsync(attendanceId);
+        confirmDeleteAttendanceId = null;
+        attendances = await AttendanceService.ListByEventAsync(ev!.Id);
+    }
+
+    // ── danger zone helpers ──
+
+    private async Task CloseEventAsync()
+    {
+        ev = await EventService.CloseAsync(ev!.Id);
+        confirmClose = false;
+    }
+
+    private async Task RotateTokenAsync()
+    {
+        var newToken = await EventService.RotateManageTokenAsync(ev!.Id);
+        Nav.NavigateTo($"/e/{Slug}/manage?t={newToken}");
+    }
+
+    private static TimeZoneInfo SafeGetTz(string ianaId)
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById(ianaId); }
+        catch { return TimeZoneInfo.Utc; }
+    }
+
+    // ── EditEventModel ──
+
+    private sealed class EditEventModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public DateTime StartsAt { get; set; }
+        public DateTime Deadline { get; set; }
+        public string? TimeZoneId { get; set; }
+        public bool AllowFreeText { get; set; }
+        public bool AttendeeOrdersVisible { get; set; }
+    }
+}

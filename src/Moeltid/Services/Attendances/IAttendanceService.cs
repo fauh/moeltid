@@ -8,6 +8,7 @@ public interface IAttendanceService
     Task<Attendance?> GetByEditTokenAsync(string editToken);
     Task<Attendance> UpdateAsync(Guid id, UpdateAttendanceRequest request);
     Task DeleteAsync(Guid id);
+    Task DeleteByOwnerAsync(Guid attendanceId);
     Task<IReadOnlyList<Attendance>> ListByEventAsync(Guid eventId);
 }
 

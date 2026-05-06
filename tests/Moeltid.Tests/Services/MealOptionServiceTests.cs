@@ -1,5 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moeltid.Models;
+using Moeltid.Services;
+using Moeltid.Services.Attendances;
+using Moeltid.Services.Email;
 using Moeltid.Services.MealOptions;
 using Moeltid.Tests.Infrastructure;
 using Shouldly;
@@ -77,4 +80,98 @@ public class MealOptionServiceTests : IClassFixture<InMemoryDatabaseFixture>
 
         result.ShouldBeEmpty();
     }
+
+    // ── CRUD ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_PersistsOption()
+    {
+        var eventId = await SeedEventAsync();
+
+        var option = await _sut.CreateAsync(eventId, "Salmon", MealTag.Fish);
+
+        option.Id.ShouldNotBe(Guid.Empty);
+        option.EventId.ShouldBe(eventId);
+        option.Label.ShouldBe("Salmon");
+        option.Tags.ShouldBe(MealTag.Fish);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_MutatesLabelAndTags()
+    {
+        var eventId = await SeedEventAsync();
+        var option = await _sut.CreateAsync(eventId, "Old label", MealTag.None);
+
+        var updated = await _sut.UpdateAsync(option.Id, "New label", MealTag.Vegetarian | MealTag.Vegan);
+
+        updated.Label.ShouldBe("New label");
+        updated.Tags.ShouldBe(MealTag.Vegetarian | MealTag.Vegan);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_NoAttendances_RemovesOption()
+    {
+        var eventId = await SeedEventAsync();
+        var option = await _sut.CreateAsync(eventId, "Solo option", MealTag.None);
+
+        await _sut.DeleteAsync(option.Id);
+
+        var remaining = await _sut.ListByEventAsync(eventId);
+        remaining.ShouldNotContain(o => o.Id == option.Id);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithDependentAttendances_ConvertsThem()
+    {
+        // Arrange: create an option and two attendances that reference it
+        var eventId = await SeedEventAsync();
+        var option = await _sut.CreateAsync(eventId, "Beef burger", MealTag.None);
+
+        var attendanceSvc = new AttendanceService(
+            _db.CreateDbContext(),
+            new TokenGenerator(),
+            new NullEmailSender(),
+            NullLogger<AttendanceService>.Instance);
+
+        var a1 = await attendanceSvc.CreateAsync(new CreateAttendanceRequest(
+            eventId, "Alice", null, OrderType.PresetOption, option.Id, null));
+        var a2 = await attendanceSvc.CreateAsync(new CreateAttendanceRequest(
+            eventId, "Bob", null, OrderType.PresetOption, option.Id, null));
+
+        // Act
+        await _sut.DeleteAsync(option.Id);
+
+        // Assert: option gone, attendances converted to FreeText with option label.
+        // Use a fresh context to bypass the attendanceSvc identity map (which still tracks
+        // the pre-delete entity state).
+        var remaining = await _sut.ListByEventAsync(eventId);
+        remaining.ShouldNotContain(o => o.Id == option.Id);
+
+        await using var verifyCtx = _db.CreateDbContext();
+        var a1After = await verifyCtx.Attendances.FindAsync(a1.Id);
+        a1After!.OrderType.ShouldBe(OrderType.FreeText);
+        a1After.FreeTextOrder.ShouldBe("Beef burger");
+        a1After.MealOptionId.ShouldBeNull();
+
+        var a2After = await verifyCtx.Attendances.FindAsync(a2.Id);
+        a2After!.OrderType.ShouldBe(OrderType.FreeText);
+        a2After.FreeTextOrder.ShouldBe("Beef burger");
+    }
+
+    [Fact]
+    public async Task CreateAsync_TagFlagComboRoundTrips()
+    {
+        var eventId = await SeedEventAsync();
+        var tags = MealTag.Drink | MealTag.Vegan;
+
+        var option = await _sut.CreateAsync(eventId, "Vegan smoothie", tags);
+        var listed = await _sut.ListByEventAsync(eventId);
+
+        listed.Single(o => o.Id == option.Id).Tags.ShouldBe(tags);
+    }
+}
+
+file sealed class NullEmailSender : IEmailSender
+{
+    public Task SendAsync(string to, string subject, string body) => Task.CompletedTask;
 }

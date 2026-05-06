@@ -6,6 +6,26 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-06 — Phase 4 complete
+
+**Executor**: Claude Code · **Branch**: `phase-4`
+
+All 14 tasks delivered. 55 tests passing (up from 37 at Phase 3 close).
+
+Key work:
+- `IEventService` extended with `UpdateAsync`, `CloseAsync`, `RotateManageTokenAsync`, `GetByOwnerEmailAsync`.
+- `IMealOptionService` extended with `CreateAsync`, `UpdateAsync`, `DeleteAsync` (deletion converts dependent attendances to `FreeText` atomically).
+- `IAttendanceService` extended with `DeleteByOwnerAsync` (owner audit log).
+- `ManageEvent.razor` — full manage page: token validation, event-detail edit, inline meal-option CRUD, attendee table with owner-delete, close-event toggle, rotate-token two-step.
+- `ManageRecover.razor` — email-based manage-link recovery; same generic success message regardless of match to prevent slug-existence leakage.
+- Tests for all new service methods; EF Core identity-map gotcha fixed (verify post-mutation with fresh DbContext).
+
+Two service-layer bugs caught at test time: `GetByOwnerEmailAsync` used server-side `DateTimeOffset` ORDER BY (SQLite rejects it — fixed to sort client-side); `NullEmailSender` file-scoped class needed in `MealOptionServiceTests.cs` separately from the copies in the other two test files.
+
+**Phase 4.5 is next.** Phase Exit review not yet performed by Cowork.
+
+---
+
 ## 2026-05-04 — Phase 4.5 plan signed off; execution order confirmed
 
 Wilhelm reviewed the Phase 4.5 plan and signed off. Execution order: **Phase 4 first, then Phase 4.5** (option A from the three offered — the default; Phase 4.5 explicitly blocks on Phase 4 per task-tracker dependencies). No further plan revisions.
