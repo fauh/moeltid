@@ -144,6 +144,34 @@ All tasks done within a single Claude Code session. Haiku-sized tasks (4.5.1, 4.
 - Spell out in the plan whether `CreateBatchAsync` skips or throws on collisions. "Idempotent" and "don't half-create" are both in the plan but point at slightly different behaviours; one note won. A single clear sentence would have saved interpretation.
 - Extract the meal-options add/edit row into a Razor component if the manage page keeps growing. At ~550 lines it's still readable but getting close.
 
-### Phase Exit review
+### Phase Exit review (Cowork-side, 2026-05-06)
 
-Pending Cowork review pass per process.md §"Phase exit — the two-tool review pattern". This retro will be updated when the review lands.
+Performed after the executor flagged "Pending Cowork review pass" — the first phase to use the new pattern correctly from start to finish. No 🔴 issues found. Two 🟡s fixed in this review pass; four 🟢s deferred.
+
+#### Findings
+
+🟡 **Email-body datetimes were formatted in UTC**, not the event's TZ. `EventService.SendInviteEmailAsync` and `InviteeService.SendRemindersAsync` both wrote `{ev.StartsAt:yyyy-MM-dd HH:mm} UTC`. Inconsistent with the manage page (which uses `TimeZoneHelper.ToLocalString`); recipients in non-UTC timezones would have to mentally convert. ✅ **FIXED** in this review pass: both call sites now use `TimeZoneHelper.ToLocalString(...) ({ev.TimeZoneId})`.
+
+🟡 **Invitee emails were not format-validated.** `InviteeService.CreateAsync` and `CreateBatchAsync` accepted any string after trim+lower-case. A typo like `alice@@example` would persist and fail later at email-send time. ✅ **FIXED** in this review pass: both methods now use `EmailAddressAttribute.IsValid` for format checking. `CreateAsync` throws on invalid (caller decides UX); `CreateBatchAsync` silently skips invalid + logs the count, mirroring the existing skip-on-duplicate pattern.
+
+🟢 **Email URLs are still relative** in the bodies (`/e/{slug}?invite={id}`). Same shape as manage-link and edit-link emails; Phase 5 prereq when real provider lands. Already on the books.
+
+🟢 **Race window** between uniqueness check and insert in `InviteeService.CreateAsync`. DB unique constraint catches it but message is unhelpful. Phase 8 polish.
+
+🟢 **Manage page is approaching ~550 lines.** The executor flagged this in their own retrospective. Phase 8 polish — extract Razor components if it grows further.
+
+🟢 **Edge case noted, not fixed**: when an attendee already has an order via cookie/`?t=` AND visits with `?invite=`, the existing-order banner shows (not the form), so the `?invite=` pre-fill never displays. Behaviourally fine — the user is identified by their existing attendance, the invite-prefill becomes redundant.
+
+#### What went well — to carry forward
+
+- **The retro itself.** Per-task tick table with artifact paths, honest deviations section, "Pending Cowork review pass" properly written instead of "Deferred". The executor followed every rule from `process.md` correctly. This is the format the discipline was designed for; it's now the gold standard for future phases.
+- **`EventService.CreateAsync` extension structure**: dedupe outside the retry loop, build child entities inside each attempt, single `SaveChangesAsync` for atomicity, emails after the save. Reusable pattern.
+- **`EventDisplayList.Build`** is a clean pure helper. Tests cover six cases including case-insensitive matching (which is technically defensive given the value converters lower-case both sides, but defensive is correct).
+- **Visibility toggle correctly extends to invitees**: `EventPage.razor` passes `[]` for invitees when `AttendeeOrdersVisible == false`, so no "no order yet" rows leak. Privacy preserved.
+- **The plan internal-consistency rule's first save**: scanning the entire phase output for plan/implementation drift surfaced no material mismatches. Compare to Phase 4 where the recover route shipped wrong from a contradictory plan.
+
+#### Things to do differently (none added in this pass)
+
+The executor's own list (clarify `CreateBatchAsync` skip-vs-throw semantics in plans; consider extracting manage-page Razor components) stands. Cowork's pass added no new lessons — the discipline now does the work the rules were written to do.
+
+Phase 4.5 truly closed.

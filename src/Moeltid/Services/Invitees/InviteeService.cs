@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using Moeltid.Data;
 using Moeltid.Models;
@@ -10,9 +11,14 @@ public class InviteeService(
     IEmailSender emailSender,
     ILogger<InviteeService> logger) : IInviteeService
 {
+    private static readonly EmailAddressAttribute EmailValidator = new();
+
     public async Task<Invitee> CreateAsync(Guid eventId, string email)
     {
         var normalised = email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrEmpty(normalised) || !EmailValidator.IsValid(normalised))
+            throw new InvalidOperationException($"\"{email}\" is not a valid email address.");
 
         // Refuse if already invited
         var existingInvitee = await db.Invitees
@@ -40,12 +46,31 @@ public class InviteeService(
 
     public async Task<IReadOnlyList<Invitee>> CreateBatchAsync(Guid eventId, IEnumerable<string> emails)
     {
-        // Deduplicate within the batch (case-insensitive, first occurrence wins)
-        var deduped = emails
-            .Select(e => e.Trim().ToLowerInvariant())
-            .Where(e => !string.IsNullOrEmpty(e))
-            .Distinct()
-            .ToList();
+        // Deduplicate within the batch (case-insensitive, first occurrence wins).
+        // Silently skip malformed emails — matches the skip-on-duplicate pattern below.
+        // Skipped count is logged at the end so it's visible in dev/log streams.
+        var rawCount = 0;
+        var invalidCount = 0;
+        var deduped = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var raw in emails ?? [])
+        {
+            rawCount++;
+            var normalised = raw.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(normalised)) continue;
+            if (!EmailValidator.IsValid(normalised))
+            {
+                invalidCount++;
+                continue;
+            }
+            if (seen.Add(normalised))
+                deduped.Add(normalised);
+        }
+
+        if (invalidCount > 0)
+            logger.LogInformation("Skipped {Count} malformed email(s) when batch-adding invitees to event {EventId}.",
+                invalidCount, eventId);
 
         if (deduped.Count == 0)
             return [];
@@ -132,6 +157,9 @@ public class InviteeService(
         var ev = await db.Events.FindAsync(eventId);
         if (ev is null) return;
 
+        var startsAtLocal = Moeltid.Services.TimeZoneHelper.ToLocalString(ev.StartsAt, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
+        var deadlineLocal = Moeltid.Services.TimeZoneHelper.ToLocalString(ev.Deadline, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
+
         foreach (var invitee in unordered)
         {
             var inviteUrl = $"/e/{ev.Slug}?invite={invitee.Id}";
@@ -144,8 +172,8 @@ public class InviteeService(
                 Submit your order here:
                 {inviteUrl}
 
-                Event date: {ev.StartsAt:yyyy-MM-dd HH:mm} UTC
-                Order deadline: {ev.Deadline:yyyy-MM-dd HH:mm} UTC
+                Event date: {startsAtLocal} ({ev.TimeZoneId})
+                Order deadline: {deadlineLocal} ({ev.TimeZoneId})
                 """;
             await emailSender.SendAsync(invitee.Email, subject, body);
         }

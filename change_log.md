@@ -6,6 +6,58 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-06 — Phase 5 plan: task 5.2 tightened with secret-handling specifics
+
+Wilhelm has an API key from Resend and asked how to use it without committing the secret. Folded the answer concretely into task 5.2 of `phase-5-plan.md`:
+
+- **Dev**: `dotnet user-secrets init` (one-time, adds a `<UserSecretsId>` GUID to the csproj — committed; the GUID is just a pointer, not a secret). Then `dotnet user-secrets set "EmailSettings:ApiKey" "<key>"`. Stored at `%APPDATA%\Microsoft\UserSecrets\<id>\secrets.json` outside the repo.
+- **Prod**: host env var `EmailSettings__ApiKey` (double-underscore convention; .NET binds it to the colon-separated config key automatically).
+- **Non-secret values** (`BaseUrl`, `FromAddress`, `UseRealProvider`) live in `appsettings.json` / `appsettings.{env}.json` normally.
+- **Fail-fast at startup**: when `UseRealProvider == true`, the app refuses to start if `ApiKey` is missing. Better than a silent failure on first send.
+
+Also added a §Decisions bullet explicitly documenting the API-key secret-handling pattern, so the executor doesn't have to re-derive it from the task notes.
+
+`.gitignore` already covers `appsettings.Development.json` / `.Local.json` / `.env` as backstops. Plan didn't change phase scope or task count.
+
+## 2026-05-06 — Phase 5 plan signed off
+
+Wilhelm reviewed and signed off all five open questions; all matched the working assumptions. Sign-off-decision review rule applied: re-checked every other §"Decisions confirmed at kickoff" item against the answers; no ripples, no items needed updating.
+
+**Locked decisions**:
+- Email provider: **Resend**.
+- Reminder audience: **all email holders** (attendees-with-email + invitees-without-attendance), status-aware body per recipient.
+- **One phase**, not split. Executor can split mid-phase if it sprawls.
+- Hangfire dashboard: **Development-only** via environment check. No production admin route.
+- Real-email test: **manual smoke** during Phase Exit, using Resend's sandbox.
+
+Phase 5 plan locked. 18 tasks. Awaiting executor pickup — Claude Code or Copilot.
+
+## 2026-05-06 — Phase 5 plan written
+
+`docs/phases/phase-5-plan.md` drafted: 18 tasks covering email infrastructure (real provider behind existing `IEmailSender`, absolute URLs via `EmailSettings:BaseUrl`, best-effort error handling) and the scheduled reminder feature (`Reminder` entity + Hangfire/SQLite + manage-page scheduling UI + audience-builder helper + on-close cancellation).
+
+**Hard rules carried** from prior phases: interactive Blazor everywhere; per-task verification table required in retro; plan internal-consistency check before lock; Cowork Phase Exit review non-deferrable.
+
+**Five open questions surfaced** for sign-off, with working recommendations: email provider (Resend recommended), reminder audience (lean: invitees + attendees with status-aware body), one-phase vs split-into-5a/5b, Hangfire dashboard exposure (Development-only), and real-email test strategy (manual smoke).
+
+Phase 5 plan awaiting Wilhelm sign-off.
+
+## 2026-05-06 — Phase 4.5 Cowork review + close
+
+Phase Exit review pass per `process.md` §"Phase exit — the two-tool review pattern". Executor flagged "Pending Cowork review pass" instead of "Deferred" — first phase to use the new pattern correctly from the start. No 🔴 issues found.
+
+**🟡 → ✅ FIXED in this pass**:
+- Email-body datetimes in invite + reminder emails were formatted in UTC; switched to `TimeZoneHelper.ToLocalString` with the event's TZ name.
+- Invitee emails weren't format-validated; added `EmailAddressAttribute.IsValid` checks in `InviteeService.CreateAsync` (throws) and `CreateBatchAsync` (silent skip + log count, matching the skip-on-duplicate pattern).
+
+**🟢 deferred** (recorded in `phase-4.5-plan.md` retro): relative URLs in email bodies (Phase 5 prereq, known); race window in `CreateAsync` (Phase 8); manage page approaching 550 lines (Phase 8); `?invite=` + existing-order edge case (acceptable, no action).
+
+**Discipline observation**: this was the first phase where the per-task verification rule, the plan internal-consistency rule, and the non-deferrable-review rule all ran from the start. Result: the retro was usable, the implementation matched the plan, and the review found a smaller set of issues than Phase 4. Three rules now compose into a coherent discipline; each was added in response to a real failure mode that paid the rule's cost back within 1-2 phases.
+
+Tracker: task #16 (Phase 4.5) → completed.
+
+Phase 4.5 truly closed. Phase 5 is next.
+
 ## 2026-05-06 — Phase 4.5 complete
 
 **Executor**: Claude Code · **Branch**: `phase-4.5`

@@ -142,6 +142,8 @@ public class EventService(
     private async Task SendInviteEmailAsync(Event ev, Invitee invitee)
     {
         var inviteUrl = $"/e/{ev.Slug}?invite={invitee.Id}";
+        var startsAtLocal = TimeZoneHelper.ToLocalString(ev.StartsAt, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
+        var deadlineLocal = TimeZoneHelper.ToLocalString(ev.Deadline, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
         var subject = $"You're invited to \"{ev.Title}\"";
         var body = $"""
             Hi,
@@ -151,8 +153,8 @@ public class EventService(
             Submit your order here:
             {inviteUrl}
 
-            Event date: {ev.StartsAt:yyyy-MM-dd HH:mm} UTC
-            Order deadline: {ev.Deadline:yyyy-MM-dd HH:mm} UTC
+            Event date: {startsAtLocal} ({ev.TimeZoneId})
+            Order deadline: {deadlineLocal} ({ev.TimeZoneId})
             """;
         await emailSender.SendAsync(invitee.Email, subject, body);
     }
