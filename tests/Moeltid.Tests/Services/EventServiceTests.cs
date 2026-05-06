@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moeltid.Models;
 using Moeltid.Services;
 using Moeltid.Services.Email;
 using Moeltid.Services.Events;
@@ -214,6 +216,78 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
         var results = await _sut.GetByOwnerEmailAsync("nobody@nowhere.invalid");
 
         results.ShouldBeEmpty();
+    }
+
+    // ── create with meal options + invitees ──────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_WithMealOptions_PersistsMealOptions()
+    {
+        var request = MakeRequest(title: "Options Event") with
+        {
+            MealOptions =
+            [
+                new MealOptionDraft("Salmon", MealTag.Fish),
+                new MealOptionDraft("Tofu stir-fry", MealTag.Vegetarian | MealTag.Vegan),
+            ],
+        };
+
+        var ev = await _sut.CreateAsync(request);
+
+        await using var ctx = _db.CreateDbContext();
+        var options = await ctx.MealOptions.Where(o => o.EventId == ev.Id).ToListAsync();
+        options.Count.ShouldBe(2);
+        options.ShouldContain(o => o.Label == "Salmon" && o.Tags == MealTag.Fish);
+        options.ShouldContain(o => o.Label == "Tofu stir-fry" && o.Tags == (MealTag.Vegetarian | MealTag.Vegan));
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithInvitees_PersistsLowerCasedInvitees()
+    {
+        var request = MakeRequest(title: "Invitee Event") with
+        {
+            InviteeEmails = ["Bob@Example.COM", "carol@example.com"],
+        };
+
+        var ev = await _sut.CreateAsync(request);
+
+        await using var ctx = _db.CreateDbContext();
+        var invitees = await ctx.Invitees.Where(i => i.EventId == ev.Id).ToListAsync();
+        invitees.Count.ShouldBe(2);
+        invitees.ShouldContain(i => i.Email == "bob@example.com");
+        invitees.ShouldContain(i => i.Email == "carol@example.com");
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithDuplicateInviteeEmails_DeduplicatesSilently()
+    {
+        var request = MakeRequest(title: "Dedup Invitees") with
+        {
+            InviteeEmails = ["dup@example.com", "DUP@EXAMPLE.COM", "unique@example.com"],
+        };
+
+        var ev = await _sut.CreateAsync(request);
+
+        await using var ctx = _db.CreateDbContext();
+        var invitees = await ctx.Invitees.Where(i => i.EventId == ev.Id).ToListAsync();
+        invitees.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task CreateAsync_EmptyOptionsAndInvitees_StillCreatesEvent()
+    {
+        var request = MakeRequest(title: "Empty Extras") with
+        {
+            MealOptions = [],
+            InviteeEmails = [],
+        };
+
+        var ev = await _sut.CreateAsync(request);
+
+        ev.Id.ShouldNotBe(Guid.Empty);
+        await using var ctx = _db.CreateDbContext();
+        (await ctx.MealOptions.AnyAsync(o => o.EventId == ev.Id)).ShouldBeFalse();
+        (await ctx.Invitees.AnyAsync(i => i.EventId == ev.Id)).ShouldBeFalse();
     }
 }
 

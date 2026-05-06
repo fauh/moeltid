@@ -23,6 +23,9 @@ public record UpdateEventRequest(
     bool AttendeeOrdersVisible
 );
 
+/// <summary>Defines a meal option to create alongside the event.</summary>
+public record MealOptionDraft(string Label, MealTag Tags);
+
 public record CreateEventRequest(
     string Title,
     string? Description,
@@ -32,5 +35,7 @@ public record CreateEventRequest(
     string OwnerName,
     string OwnerEmail,
     bool AllowFreeText,
-    bool AttendeeOrdersVisible
+    bool AttendeeOrdersVisible,
+    IReadOnlyList<MealOptionDraft>? MealOptions = null,
+    IReadOnlyList<string>? InviteeEmails = null
 );

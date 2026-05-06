@@ -5,6 +5,7 @@ using Moeltid.Services;
 using Moeltid.Services.Attendances;
 using Moeltid.Services.Email;
 using Moeltid.Services.Events;
+using Moeltid.Services.Invitees;
 using Moeltid.Services.MealOptions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,7 @@ builder.Services.AddSingleton<SlugGenerator>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IMealOptionService, MealOptionService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<IInviteeService, InviteeService>();
 builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 
 var app = builder.Build();

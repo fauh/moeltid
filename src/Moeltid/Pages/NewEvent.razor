@@ -1,4 +1,5 @@
 @page "/new"
+@using Moeltid.Models
 @using Moeltid.Services.Events
 @inject IEventService EventService
 @inject NavigationManager Nav
@@ -71,6 +72,67 @@
         <div class="form-text">When enabled, attendees can see each other's names and orders on the event page.</div>
     </div>
 
+    @* ── Preset meal options ──────────────────────────────────────────────── *@
+    <hr class="my-4" />
+    <h2 class="h5">Preset meal options <span class="text-muted fw-normal fs-6">(optional)</span></h2>
+    <p class="text-muted small">Define meal choices for attendees to pick from. You can add more after creation too.</p>
+
+    @if (draftOptions.Count > 0)
+    {
+        <ul class="list-group mb-3">
+            @foreach (var (draft, idx) in draftOptions.Select((d, i) => (d, i)))
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        @draft.Label
+                        @if (draft.Tags != MealTag.None)
+                        {
+                            <small class="text-muted ms-2">(@draft.Tags)</small>
+                        }
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            @onclick="() => RemoveDraftOption(idx)">Remove</button>
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="d-flex gap-2 align-items-end flex-wrap mb-2">
+        <div>
+            <label class="form-label mb-1">Label</label>
+            <input class="form-control form-control-sm" style="width:220px" @bind="newOptionLabel"
+                   placeholder="e.g. Vegetarian pasta" />
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+                @onclick="AddDraftOption"
+                disabled="@string.IsNullOrWhiteSpace(newOptionLabel)">Add option</button>
+    </div>
+    <div class="mb-3">
+        @foreach (var tag in AllTags)
+        {
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="new-opt-tag-@tag"
+                       checked="@(newOptionTags.HasFlag(tag))"
+                       @onchange="e => ToggleNewOptionTag(tag, (bool)e.Value!)" />
+                <label class="form-check-label" for="new-opt-tag-@tag">@tag</label>
+            </div>
+        }
+    </div>
+
+    @* ── Invite by email ──────────────────────────────────────────────────── *@
+    <hr class="my-4" />
+    <h2 class="h5">Invite by email <span class="text-muted fw-normal fs-6">(optional)</span></h2>
+    <p class="text-muted small">
+        Each person gets an invitation email with a link that pre-fills their email on the order form.
+        Separate multiple addresses with commas.
+    </p>
+
+    <div class="mb-3" style="max-width:500px">
+        <label class="form-label" for="inviteeEmails">Email addresses</label>
+        <InputTextArea id="inviteeEmails" class="form-control" @bind-Value="model.InviteeEmailsRaw" rows="3"
+            placeholder="alice@example.com, bob@example.com" />
+    </div>
+
     @if (!string.IsNullOrEmpty(errorMessage))
     {
         <div class="alert alert-danger" role="alert">@errorMessage</div>
@@ -86,6 +148,27 @@
     private string? errorMessage;
     private bool isSubmitting;
 
+    // ── draft meal options ────────────────────────────────────────────────
+    private readonly List<MealOptionDraft> draftOptions = [];
+    private string newOptionLabel = string.Empty;
+    private MealTag newOptionTags;
+    private static readonly MealTag[] AllTags =
+        Enum.GetValues<MealTag>().Where(t => t != MealTag.None).ToArray();
+
+    private void AddDraftOption()
+    {
+        if (string.IsNullOrWhiteSpace(newOptionLabel)) return;
+        draftOptions.Add(new MealOptionDraft(newOptionLabel.Trim(), newOptionTags));
+        newOptionLabel = string.Empty;
+        newOptionTags = MealTag.None;
+    }
+
+    private void RemoveDraftOption(int index) => draftOptions.RemoveAt(index);
+
+    private void ToggleNewOptionTag(MealTag tag, bool on) =>
+        newOptionTags = on ? (newOptionTags | tag) : (newOptionTags & ~tag);
+
+    // ── lifecycle ────────────────────────────────────────────────────────
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
@@ -108,6 +191,11 @@
         errorMessage = null;
         try
         {
+            var inviteeEmails = (model.InviteeEmailsRaw ?? string.Empty)
+                .Split([',', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .ToList();
+
             var ev = await EventService.CreateAsync(new CreateEventRequest(
                 Title: model.Title,
                 Description: model.Description,
@@ -117,7 +205,9 @@
                 OwnerName: model.OwnerName,
                 OwnerEmail: model.OwnerEmail,
                 AllowFreeText: model.AllowFreeText,
-                AttendeeOrdersVisible: model.AttendeeOrdersVisible
+                AttendeeOrdersVisible: model.AttendeeOrdersVisible,
+                MealOptions: draftOptions,
+                InviteeEmails: inviteeEmails
             ));
             Nav.NavigateTo($"/created/{ev.Id}");
         }
@@ -156,6 +246,9 @@
 
         public bool AllowFreeText { get; set; } = true;
         public bool AttendeeOrdersVisible { get; set; } = true;
+
+        // Raw comma/newline-separated invite emails from the textarea
+        public string? InviteeEmailsRaw { get; set; }
 
         public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(
             System.ComponentModel.DataAnnotations.ValidationContext context)
