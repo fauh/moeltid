@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Event> Events => Set<Event>();
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
+    public DbSet<Invitee> Invitees => Set<Invitee>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(x => x.MealOptionId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(false);
+        });
+
+        modelBuilder.Entity<Invitee>(i =>
+        {
+            i.HasKey(x => x.Id);
+            i.HasIndex(x => new { x.EventId, x.Email }).IsUnique();
+            i.Property(x => x.Email)
+                .HasConversion(v => v.ToLowerInvariant(), v => v);
+            i.HasOne(x => x.Event)
+                .WithMany()
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -2,11 +2,13 @@
 @using Moeltid.Models
 @using Moeltid.Services.Attendances
 @using Moeltid.Services.Events
+@using Moeltid.Services.Invitees
 @using Moeltid.Services.MealOptions
 @using static Moeltid.Services.TimeZoneHelper
 @inject IEventService EventService
 @inject IMealOptionService MealOptionService
 @inject IAttendanceService AttendanceService
+@inject IInviteeService InviteeService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -191,6 +193,130 @@ else
         </div>
     </section>
 
+    <!-- ── Invitees ─────────────────────────────────────────────────── -->
+    <section class="mt-5">
+        <h2 class="h4">Invitees</h2>
+
+        @if (inviteeError is not null)
+        {
+            <div class="alert alert-danger py-2">@inviteeError</div>
+        }
+
+        @* Send-reminders button *@
+        @{
+            var unorderedCount = invitees.Count(i =>
+                !attendances.Any(a => a.Email == i.Email));
+        }
+        @if (unorderedCount > 0)
+        {
+            @if (confirmReminders)
+            {
+                <div class="mb-3">
+                    <p>Send a reminder to <strong>@unorderedCount</strong> invitee@(unorderedCount == 1 ? "" : "s") who @(unorderedCount == 1 ? "hasn't" : "haven't") ordered yet?</p>
+                    <button class="btn btn-primary me-2" @onclick="SendRemindersAsync" disabled="@sendingReminders">
+                        @(sendingReminders ? "Sending…" : "Yes, send reminders")
+                    </button>
+                    <button class="btn btn-outline-secondary" @onclick="() => confirmReminders = false">Cancel</button>
+                </div>
+            }
+            else if (remindersSent)
+            {
+                <div class="alert alert-success py-2 mb-3">Reminders sent.</div>
+            }
+            else
+            {
+                <button class="btn btn-outline-primary mb-3" @onclick="() => confirmReminders = true">
+                    Remind @unorderedCount @(unorderedCount == 1 ? "person" : "people") who @(unorderedCount == 1 ? "hasn't" : "haven't") ordered yet
+                </button>
+            }
+        }
+
+        @if (invitees.Count == 0)
+        {
+            <p class="text-muted">No invitees yet.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr><th>Email</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var inv in invitees)
+                    {
+                        var hasOrder = attendances.Any(a => a.Email == inv.Email);
+                        @if (confirmDeleteInviteeId == inv.Id)
+                        {
+                            <tr class="table-warning">
+                                <td colspan="2">
+                                    <strong>Remove @inv.Email?</strong>
+                                    @if (hasOrder)
+                                    {
+                                        <span class="ms-1 text-muted">— this person has an order.</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (hasOrder)
+                                    {
+                                        <button class="btn btn-sm btn-warning me-1"
+                                                @onclick="() => DeleteInviteeAsync(inv.Id, false)">
+                                            Remove invitee only
+                                        </button>
+                                        <button class="btn btn-sm btn-danger me-1"
+                                                @onclick="() => DeleteInviteeAsync(inv.Id, true)">
+                                            Remove invitee &amp; order
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-danger me-1"
+                                                @onclick="() => DeleteInviteeAsync(inv.Id, false)">
+                                            Confirm remove
+                                        </button>
+                                    }
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            @onclick="() => confirmDeleteInviteeId = null">Cancel</button>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td>@inv.Email</td>
+                                <td>
+                                    @if (hasOrder)
+                                    {
+                                        <span class="badge text-bg-success">ordered</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-secondary">no order yet</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => confirmDeleteInviteeId = inv.Id">Remove</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+
+        @* Add invitee form *@
+        <div class="mt-3 d-flex gap-2 align-items-end">
+            <div>
+                <label class="form-label mb-1">Add invitee by email</label>
+                <input class="form-control form-control-sm" style="width:260px"
+                       @bind="newInviteeEmail" placeholder="person@example.com" />
+            </div>
+            <button class="btn btn-sm btn-outline-primary"
+                    @onclick="AddInviteeAsync"
+                    disabled="@string.IsNullOrWhiteSpace(newInviteeEmail)">Add</button>
+        </div>
+    </section>
+
     <!-- ── Attendee orders ────────────────────────────────────────────── -->
     <section class="mt-5">
         <h2 class="h4">Orders (@attendances.Count)</h2>
@@ -293,6 +419,7 @@ else
     private bool tokenValid;
     private IReadOnlyList<MealOption> mealOptions = [];
     private IReadOnlyList<Attendance> attendances = [];
+    private IReadOnlyList<Invitee> invitees = [];
 
     private string ManageUrl => ev is null ? string.Empty
         : Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
@@ -311,6 +438,14 @@ else
     private string newOptionLabel = string.Empty;
     private MealTag newOptionTags;
     private string? optionError;
+
+    // ── invitee state ──
+    private Guid? confirmDeleteInviteeId;
+    private string newInviteeEmail = string.Empty;
+    private string? inviteeError;
+    private bool confirmReminders;
+    private bool sendingReminders;
+    private bool remindersSent;
 
     // ── attendance delete state ──
     private Guid? confirmDeleteAttendanceId;
@@ -336,6 +471,7 @@ else
     {
         mealOptions = await MealOptionService.ListByEventAsync(ev!.Id);
         attendances = await AttendanceService.ListByEventAsync(ev.Id);
+        invitees = await InviteeService.ListByEventAsync(ev.Id);
     }
 
     private void PopulateEditModel()
@@ -434,6 +570,44 @@ else
         await MealOptionService.DeleteAsync(optionId);
         confirmDeleteOptionId = null;
         await RefreshDataAsync(); // attendances may have changed too
+    }
+
+    // ── invitee helpers ──
+
+    private async Task AddInviteeAsync()
+    {
+        inviteeError = null;
+        if (string.IsNullOrWhiteSpace(newInviteeEmail)) return;
+        try
+        {
+            await InviteeService.CreateAsync(ev!.Id, newInviteeEmail.Trim());
+            newInviteeEmail = string.Empty;
+            invitees = await InviteeService.ListByEventAsync(ev.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            inviteeError = ex.Message;
+        }
+    }
+
+    private async Task DeleteInviteeAsync(Guid inviteeId, bool alsoDeleteAttendance)
+    {
+        inviteeError = null;
+        await InviteeService.DeleteAsync(inviteeId, alsoDeleteAttendance);
+        confirmDeleteInviteeId = null;
+        await RefreshDataAsync();
+    }
+
+    private async Task SendRemindersAsync()
+    {
+        sendingReminders = true;
+        try
+        {
+            await InviteeService.SendRemindersAsync(ev!.Id);
+            confirmReminders = false;
+            remindersSent = true;
+        }
+        finally { sendingReminders = false; }
     }
 
     // ── attendance helpers ──

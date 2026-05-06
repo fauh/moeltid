@@ -31,7 +31,8 @@ In:
 - **Public event URL** `/e/{slug}`. Attendees enter their name (and optional email), pick a preset meal option or write a free-text order, submit.
 - A cookie remembers the attendee on this device so they can edit/withdraw their order. If they provided email, an edit link is also emailed.
 - Meal options carry tags: drink, fish, vegetarian (lacto-ovo), vegan.
-- **Owner manage page**: edit fields, manage meal options, schedule one reminder, close the event (no further changes), view all orders, export CSV, optionally rotate the manage token.
+- **Invitations**: at event creation (and on the manage page), the owner provides a comma-separated list of emails. Each invitee gets an emailed link `/e/{slug}?invite={inviteeId}` that pre-fills their email read-only on the order form. Invited-but-not-ordered rows show on the event page flagged "no order yet" (subject to `AttendeeOrdersVisible`). The manage page shows invitee status and has a "Send reminders" action for unordered invitees.
+- **Owner manage page**: edit fields, manage meal options, manage invitees (add/remove with three-option prompt when invitee has ordered), schedule one reminder, close the event (no further changes), view all orders, export CSV, optionally rotate the manage token.
 - **Per-event "attendee orders visible" toggle**: when on (default), the public page shows all attendee names and orders; when off, attendees see only their own row. Owner sees everything regardless.
 - **One reminder per event.** Hangfire fires it; an email goes to attendees who provided email.
 - All datetimes stored UTC. `Event.TimeZoneId` is the owner's; manage page renders in that TZ. Public page renders in the visiting browser's TZ.

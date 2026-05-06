@@ -99,4 +99,51 @@ This is bigger than Phase 4 (14) but smaller than Phase 3 (17). Splitting into 4
 
 ## What actually happened
 
-_To be filled in at phase end. Per `process.md`, must include: the executor (Claude Code, GitHub Copilot, or other), the actual model(s) run, deviations from plan, surprises, what to do differently, and an explicit per-task tick against the table above with each tick pointing at the specific code/test artifact._
+**Executor**: Claude Code (Sonnet for service/UI tasks; inline for Haiku-sized tasks)
+**Completed**: 2026-05-06
+
+### Per-task verification
+
+| # | ✓/✗ | Artifact |
+|---|---|---|
+| 4.5.1 | ✅ | `Models/Invitee.cs`; `AppDbContext.cs` Invitees DbSet + composite unique index; migration `AddInvitee` |
+| 4.5.2 | ✅ | `Services/Invitees/IInviteeService.cs` + `InviteeService.cs`; DI in `Program.cs` |
+| 4.5.3 | ✅ | `IEventService.cs` — `MealOptionDraft` record; `CreateEventRequest` now has optional `MealOptions` + `InviteeEmails`; `EventService.CreateAsync` inserts all in single `SaveChangesAsync` |
+| 4.5.4 | ✅ | `Services/EventDisplayList.cs` — `DisplayRow` + `EventDisplayList.Build` |
+| 4.5.5 | ✅ | `EventDisplayListTests.cs` — 6 tests covering ordered-only, invited-only, mixed, case-insensitive match, empty inputs, attendee-with-no-email |
+| 4.5.6 | ✅ | `Pages/NewEvent.razor` — meal-options section (inline draft list + tag checkboxes); invite-emails textarea |
+| 4.5.7 | ✅ | `Pages/EventPage.razor` — `[SupplyParameterFromQuery] Guid? InviteId`; invite pre-fill; `EventDisplayList.Build` for unified display |
+| 4.5.8 | ✅ | `EventService.SendInviteEmailAsync` called per-invitee after `SaveChangesAsync` in `CreateAsync` |
+| 4.5.9 | ✅ | `Pages/ManageEvent.razor` — Invitees section: list with ordered/no-order-yet badges; three-option delete prompt; add-invitee form |
+| 4.5.10 | ✅ | `Pages/ManageEvent.razor` — "Remind N people" button → confirm → `InviteeService.SendRemindersAsync` |
+| 4.5.11 | ✅ | `InviteeServiceTests.cs` — 14 tests covering all methods |
+| 4.5.12 | ✅ | `EventServiceTests.cs` — 4 new tests: create-with-options, create-with-invitees (lower-cased), dedup, empty-extras |
+| 4.5.13 | ✅ | `InviteeServiceTests.cs` — `SendRemindersAsync_CallsSendOncePerUnorderedInvitee` + `_AllOrdered_SendsNothing` using `RecordingEmailSender` test double |
+| 4.5.14 | ✅ | `docs/design.md` §3 invitations + manage-page bullets added; §5 `Invitee` entity already present; §6 `?invite=` note already present |
+| 4.5.15 | ✅ | This section; `change_log.md` entry |
+
+**Total tests**: 80 passing (up from 55 at Phase 4 close).
+
+### Actual models used
+
+All tasks done within a single Claude Code session. Haiku-sized tasks (4.5.1, 4.5.4, 4.5.5, 4.5.8, 4.5.14, 4.5.15) handled inline by Sonnet — no model switch taken.
+
+### Deviations from plan
+
+- **`EventDisplayList` receives `VisibleAttendances` not raw `attendances`** in `EventPage.razor`. This is correct per the plan's note about visibility-toggle layering, though the plan's wording of 4.5.4 described `AttendanceVisibility.Apply` as happening in the page "over the unified list". The implementation applies visibility *before* passing to `EventDisplayList.Build`, which is functionally equivalent and simpler.
+- **`CreateBatchAsync` skips (not throws on) existing entries**. The plan said "idempotent — safe at event-creation time" and "don't half-create the event". The skip-and-continue approach is the correct read of those two notes together: at creation time there are no existing rows anyway; on the manage-page, single-email `CreateAsync` throws. Consistent with intent.
+- **Reminders button shows only when there are unordered invitees**. When `unorderedCount == 0`, the button is hidden entirely rather than disabled — slightly better UX than the plan's description, which was silent on this case.
+
+### Surprises
+
+- No SQLite `DateTimeOffset` ORDER BY surprises this phase — all new `ListBy*` methods sort client-side from the start (lesson carried from Phase 4).
+- `EventPage.razor` — the `VisibleAttendances` computed property (used for the old attendance-only table) needed to feed `EventDisplayList.Build` with the already-filtered slice. The `displayRows` field therefore replaces the old `VisibleAttendances` direct loop entirely.
+
+### Things to do differently
+
+- Spell out in the plan whether `CreateBatchAsync` skips or throws on collisions. "Idempotent" and "don't half-create" are both in the plan but point at slightly different behaviours; one note won. A single clear sentence would have saved interpretation.
+- Extract the meal-options add/edit row into a Razor component if the manage page keeps growing. At ~550 lines it's still readable but getting close.
+
+### Phase Exit review
+
+Pending Cowork review pass per process.md §"Phase exit — the two-tool review pattern". This retro will be updated when the review lands.

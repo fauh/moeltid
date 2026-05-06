@@ -16,6 +16,13 @@ public class EventService(
 
     public async Task<Event> CreateAsync(CreateEventRequest request)
     {
+        // Deduplicate invitee emails within the batch before any retry loop
+        var inviteeEmails = (request.InviteeEmails ?? [])
+            .Select(e => e.Trim().ToLowerInvariant())
+            .Where(e => !string.IsNullOrEmpty(e))
+            .Distinct()
+            .ToList();
+
         for (var attempt = 0; attempt < MaxSlugAttempts; attempt++)
         {
             var ev = new Event
@@ -35,12 +42,39 @@ public class EventService(
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
+            // Build child entities keyed to this attempt's event ID
+            var options = (request.MealOptions ?? [])
+                .Select(d => new MealOption
+                {
+                    Id = Guid.NewGuid(),
+                    EventId = ev.Id,
+                    Label = d.Label.Trim(),
+                    Tags = d.Tags,
+                })
+                .ToList();
+
+            var now = DateTimeOffset.UtcNow;
+            var invitees = inviteeEmails
+                .Select(email => new Invitee
+                {
+                    Id = Guid.NewGuid(),
+                    EventId = ev.Id,
+                    Email = email,
+                    InvitedAt = now,
+                })
+                .ToList();
+
             try
             {
                 db.Events.Add(ev);
-                await db.SaveChangesAsync();
+                if (options.Count > 0) db.MealOptions.AddRange(options);
+                if (invitees.Count > 0) db.Invitees.AddRange(invitees);
+                await db.SaveChangesAsync();   // single transaction
 
                 await SendManageLinkEmailAsync(ev);
+                foreach (var invitee in invitees)
+                    await SendInviteEmailAsync(ev, invitee);
+
                 return ev;
             }
             catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex) && attempt < MaxSlugAttempts - 1)
@@ -103,6 +137,24 @@ public class EventService(
             .Where(e => e.OwnerEmail == normalised)
             .ToListAsync();
         return [.. list.OrderByDescending(e => e.CreatedAt)];
+    }
+
+    private async Task SendInviteEmailAsync(Event ev, Invitee invitee)
+    {
+        var inviteUrl = $"/e/{ev.Slug}?invite={invitee.Id}";
+        var subject = $"You're invited to \"{ev.Title}\"";
+        var body = $"""
+            Hi,
+
+            You've been invited to submit your order for "{ev.Title}".
+
+            Submit your order here:
+            {inviteUrl}
+
+            Event date: {ev.StartsAt:yyyy-MM-dd HH:mm} UTC
+            Order deadline: {ev.Deadline:yyyy-MM-dd HH:mm} UTC
+            """;
+        await emailSender.SendAsync(invitee.Email, subject, body);
     }
 
     private async Task SendManageLinkEmailAsync(Event ev)

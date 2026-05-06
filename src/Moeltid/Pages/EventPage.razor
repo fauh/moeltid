@@ -4,11 +4,13 @@
 @using Moeltid.Services
 @using Moeltid.Services.Attendances
 @using Moeltid.Services.Events
+@using Moeltid.Services.Invitees
 @using Moeltid.Services.MealOptions
 @using static Moeltid.Services.TimeZoneHelper
 @inject IEventService EventService
 @inject IMealOptionService MealOptionService
 @inject IAttendanceService AttendanceService
+@inject IInviteeService InviteeService
 @inject IAntiforgery Antiforgery
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager Nav
@@ -80,7 +82,17 @@ else
 
                         <div class="mb-3">
                             <label class="form-label" for="email">Email <span class="text-muted">(optional — for an edit link)</span></label>
-                            <input id="email" name="email" type="email" class="form-control" maxlength="200" />
+                            @if (invitePrefilledEmail is not null)
+                            {
+                                @* Pre-filled from the ?invite= query parameter — shown read-only *@
+                                <input id="email" name="email" type="email" class="form-control"
+                                       value="@invitePrefilledEmail" readonly />
+                                <div class="form-text">Pre-filled from your invitation.</div>
+                            }
+                            else
+                            {
+                                <input id="email" name="email" type="email" class="form-control" maxlength="200" />
+                            }
                         </div>
 
                         @if (mealOptions.Count > 0)
@@ -147,7 +159,7 @@ else
     {
         <h2 class="mt-5 h4">Orders</h2>
 
-        @if (!attendances.Any())
+        @if (!displayRows.Any())
         {
             <p class="text-muted">No orders yet.</p>
         }
@@ -156,26 +168,37 @@ else
             <table class="table table-sm mt-2">
                 <thead>
                     <tr>
-                        <th>Name</th>
+                        <th>Name / Email</th>
                         <th>Order</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var a in VisibleAttendances)
+                    @foreach (var row in displayRows)
                     {
-                        <tr class="@(a.Id == myAttendance?.Id ? "table-success" : "")">
-                            <td>@a.Name</td>
-                            <td>
-                                @if (a.OrderType == OrderType.FreeText)
-                                {
-                                    @a.FreeTextOrder
-                                }
-                                else
-                                {
-                                    @a.MealOption?.Label
-                                }
-                            </td>
-                        </tr>
+                        @if (row.Kind == DisplayRowKind.Ordered && row.Attendance is not null)
+                        {
+                            var a = row.Attendance;
+                            <tr class="@(a.Id == myAttendance?.Id ? "table-success" : "")">
+                                <td>@a.Name</td>
+                                <td>
+                                    @if (a.OrderType == OrderType.FreeText)
+                                    {
+                                        @a.FreeTextOrder
+                                    }
+                                    else
+                                    {
+                                        @a.MealOption?.Label
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        else if (row.Kind == DisplayRowKind.NoOrderYet && row.Invitee is not null)
+                        {
+                            <tr class="text-muted">
+                                <td>@row.Invitee.Email</td>
+                                <td><span class="badge text-bg-secondary">no order yet</span></td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -186,18 +209,16 @@ else
 @code {
     [Parameter] public string Slug { get; set; } = string.Empty;
     [SupplyParameterFromQuery(Name = "t")] public string? EditToken { get; set; }
+    [SupplyParameterFromQuery(Name = "invite")] public Guid? InviteId { get; set; }
 
     private Event? ev;
     private bool notFound;
     private IReadOnlyList<MealOption> mealOptions = [];
     private IReadOnlyList<Attendance> attendances = [];
+    private IReadOnlyList<Invitee> invitees = [];
     private Attendance? myAttendance;
-
-    // Visibility rule lives in AttendanceVisibility.Apply for testability (Phase 3 task 3.16).
-    private IEnumerable<Attendance> VisibleAttendances =>
-        ev is null
-            ? []
-            : AttendanceVisibility.Apply(attendances, ev.AttendeeOrdersVisible, myAttendance?.Id);
+    private string? invitePrefilledEmail;
+    private IReadOnlyList<DisplayRow> displayRows = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -207,6 +228,7 @@ else
 
         mealOptions = await MealOptionService.ListByEventAsync(ev.Id);
         attendances = await AttendanceService.ListByEventAsync(ev.Id);
+        invitees = await InviteeService.ListByEventAsync(ev.Id);
 
         if (!string.IsNullOrEmpty(EditToken))
             myAttendance = await AttendanceService.GetByEditTokenAsync(EditToken);
@@ -214,7 +236,26 @@ else
         // Only trust myAttendance if it actually belongs to this event
         if (myAttendance?.EventId != ev.Id)
             myAttendance = null;
+
+        // Resolve invite pre-fill (?invite=<inviteeId>)
+        if (InviteId.HasValue)
+        {
+            var invitee = await InviteeService.GetByIdAsync(InviteId.Value);
+            if (invitee?.EventId == ev.Id)
+                invitePrefilledEmail = invitee.Email;
+        }
+
+        // Build unified display list.
+        // Invitee "no order yet" rows are only shown when AttendeeOrdersVisible is on.
+        displayRows = EventDisplayList.Build(VisibleAttendances, ev.AttendeeOrdersVisible ? invitees : []);
     }
+
+    // Visibility rule — attendees see each other's rows only when AttendeeOrdersVisible is true,
+    // but always see their own row.
+    private IEnumerable<Attendance> VisibleAttendances =>
+        ev is null
+            ? []
+            : AttendanceVisibility.Apply(attendances, ev.AttendeeOrdersVisible, myAttendance?.Id);
 
     // forceLoad is required because /e/{slug}/edit-order renders a form that
     // depends on HttpContext (for antiforgery tokens). Soft-nav inside the

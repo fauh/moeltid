@@ -6,6 +6,25 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-06 — Phase 4.5 complete
+
+**Executor**: Claude Code · **Branch**: `phase-4.5`
+
+All 15 tasks delivered. 80 tests passing (up from 55 at Phase 4 close).
+
+Key work:
+- `Invitee` entity + `AddInvitee` EF migration. `UNIQUE(EventId, Email)`, cascade-delete, email value converter.
+- `IInviteeService` + `InviteeService`: `CreateAsync` (single, validates uniqueness), `CreateBatchAsync` (dedup + skip existing), `ListUnorderedByEventAsync` (join against Attendance), `DeleteAsync` (optional transactional attendance delete), `SendRemindersAsync`.
+- `CreateEventRequest` extended with optional `MealOptions: IReadOnlyList<MealOptionDraft>?` and `InviteeEmails: IReadOnlyList<string>?`. `EventService.CreateAsync` inserts event + options + invitees atomically.
+- `EventDisplayList.Build` pure helper merges attendances + invitees → unified display list with `Ordered` / `NoOrderYet` row kinds.
+- `NewEvent.razor` gains inline meal-option draft section (label + tag checkboxes + remove) and invite-emails textarea (comma/newline-separated).
+- `EventPage.razor` gains `?invite=` pre-fill (email read-only when valid invitee ID matches event) and uses `EventDisplayList` for the orders table (invited-no-order rows show "no order yet" badge).
+- `ManageEvent.razor` gains Invitees section: list with ordered/no-order-yet status, three-option delete prompt (keep order / remove both / cancel), add-invitee form, and "Remind N people" two-step send-reminders action.
+
+**Phase 5 is next** (real email delivery + Hangfire reminder scheduling).
+
+---
+
 ## 2026-05-06 — Phase 4 complete
 
 **Executor**: Claude Code · **Branch**: `phase-4`
