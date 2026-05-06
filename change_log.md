@@ -26,6 +26,51 @@ Two service-layer bugs caught at test time: `GetByOwnerEmailAsync` used server-s
 
 ---
 
+## 2026-05-06 — Phase 4 full review pass: meal-option tag fix + Phase 6.5 placeholder
+
+After the recover-route fix landed, Cowork did the thorough Phase Exit review the discipline had been calling for. One additional 🟡 issue (worth fixing now) plus five 🟢s (deferrable):
+
+**🟡 → ✅ FIXED**: the new-meal-option add form on the manage page hardcoded `MealTag.None` because the form had no tag-selection UI. Owners could only set tags by adding then immediately editing — partial implementation of the design intent. Added tag-checkbox row mirroring the edit-mode pattern; `newOptionTags` field + `ToggleNewTag` helper. Same shape as the recover gap (feature implemented to the letter of the task description but not the spirit of the design) — the new plan internal-consistency rule should catch this class of issue going forward.
+
+**🟢 deferred** (recorded in `phase-4-plan.md` retro for Phase 8/9 to pick up): non-constant-time token comparison on the manage page; inline if-check vs `IValidatableObject` on the edit form; token rotation's reliance on EF tracking; no service-level deadline-vs-StartsAt validation; long-standing `Starats` test typo.
+
+**Phase 6.5 — Events listing / discovery** added to the roadmap as a deferred enhancement (Wilhelm's framing: "significant scope creep but would probably add to the usability of the site"). Placeholder only — detailed design deferred to phase kickoff. Sits between Phase 6 (CSV export) and Phase 7 (Deploy infrastructure). Open design question recorded in `design.md` §9: how to do a list page without breaking the no-browse privacy model. Working assumption: per-email lookup mirroring the `/recover` privacy posture.
+
+Also added to the Phase 4 retro: a "what went well" subsection capturing patterns to carry forward into Phase 4.5 (hard rules held; deletion-with-conversion is the reference pattern for transactional logic; two-step pure-Blazor confirmations).
+
+Tracker: new task #17 for Phase 6.5; Phase 7 (#12 — Deploy infrastructure) blocked-by Phase 6.5.
+
+## 2026-05-06 — Phase 4 reopened: recover flow was unreachable + wrong lookup + retro process violations
+
+Wilhelm tested the running app and found the recover flow had no entry point from the landing page. Cowork-side review pass surfaced four findings.
+
+**🔴 Recover flow is unreachable AND wired wrong (combined fix).** Two issues in one feature:
+1. `Pages/ManageRecover.razor` lived at `/e/{slug}/manage/recover` with no link from the landing page. A user who lost their manage email had no way to discover the recover form.
+2. The implementation looked up the event by slug (`GetBySlugAsync`) and verified email match. It only recovered one event, and required the user to know the slug — exactly the URL fragment most likely lost along with the manage URL.
+
+The plan had explicitly specified `GetByOwnerEmailAsync` (email-based lookup, returns all matching events, sends one email each) in the Risks section and in Wilhelm's sign-off answers — but task 4.10's notes said slug-based, and the executor implemented the task notes. **Plan internal contradiction shipped wrong design.**
+
+Fix applied in Cowork:
+- New `Pages/Recover.razor` at top-level `/recover` — email-only form, calls `GetByOwnerEmailAsync`, sends one email per matching event.
+- `Pages/Index.razor` gains a "Lost your manage link?" link.
+- `Pages/ManageRecover.razor` overwritten as a redirect stub to `/recover` (legacy route preserved for any inbound bookmarks; safe to delete later).
+- `Pages/ManageEvent.razor` invalid-link view's "Request a new manage link" anchor points to `/recover`.
+- `design.md` §6 page table updated.
+
+**🟡 Phase 4 plan was internally inconsistent.** Three places said three things about the recover flow. Captured as a planning lesson — new **"Plan internal-consistency rule"** added to `process.md` §"Phase decomposition". Scan all plan sections for self-consistency before lock.
+
+**🟡 Phase Exit review was deferred by the executor in the retro.** The retro literally said *"Phase Exit review not yet performed by Cowork… Deferred"*. The new pattern's whole point was to make this non-deferrable. Reinforced in `process.md`: **"the review pass is not deferrable by the executor"** — either Cowork has performed it or the phase remains in_progress in the tracker.
+
+**🟡 Per-task verification table was missing.** Rule was added 2026-05-04, before Phase 4 closed 2026-05-06; the rule wasn't applied. Per-task tick added retroactively to the Phase 4 retro. Without it, the task 4.10 mis-implementation was invisible to readers downstream.
+
+Tracker: task #5 (Phase 4) moved to completed once these fixes land. Phase 4.5 (#16) unblocked.
+
+**Net process additions** *(Phase 4's lesson distilled)*:
+- Plan internal-consistency rule (`process.md` §"Phase decomposition").
+- Phase Exit review is non-deferrable (`process.md` §"Phase exit — the two-tool review pattern").
+
+Three rules now guard the planning + retro lifecycle: sign-off-decision review, plan internal-consistency, and (mandatory) phase exit review with per-task verification. They're starting to compose into a coherent discipline; each one paid for itself within a phase or two of being added.
+
 ## 2026-05-04 — Phase 4.5 plan signed off; execution order confirmed
 
 Wilhelm reviewed the Phase 4.5 plan and signed off. Execution order: **Phase 4 first, then Phase 4.5** (option A from the three offered — the default; Phase 4.5 explicitly blocks on Phase 4 per task-tracker dependencies). No further plan revisions.

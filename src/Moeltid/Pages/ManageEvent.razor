@@ -16,7 +16,7 @@
 {
     <h1>Invalid manage link</h1>
     <p>This link is invalid or has expired. Check that you copied the full URL.</p>
-    <p><a href="/e/@Slug/manage/recover">Request a new manage link</a></p>
+    <p><a href="/recover">Request a new manage link</a></p>
 }
 else if (ev is null)
 {
@@ -167,13 +167,27 @@ else
             </table>
         }
 
-        <div class="mt-3 d-flex gap-2 align-items-end">
-            <div>
-                <label class="form-label mb-1">New option label</label>
-                <input class="form-control form-control-sm" style="width:220px" @bind="newOptionLabel" placeholder="e.g. Vegetarian pasta" />
+        <div class="mt-3">
+            <h3 class="h6">Add new option</h3>
+            <div class="d-flex gap-2 align-items-end">
+                <div>
+                    <label class="form-label mb-1">Label</label>
+                    <input class="form-control form-control-sm" style="width:220px" @bind="newOptionLabel" placeholder="e.g. Vegetarian pasta" />
+                </div>
+                <button class="btn btn-sm btn-outline-primary" @onclick="AddOptionAsync"
+                        disabled="@string.IsNullOrWhiteSpace(newOptionLabel)">Add</button>
             </div>
-            <button class="btn btn-sm btn-outline-primary" @onclick="AddOptionAsync"
-                    disabled="@string.IsNullOrWhiteSpace(newOptionLabel)">Add</button>
+            <div class="mt-2">
+                @foreach (var tag in AllTags)
+                {
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="new-tag-@tag"
+                               checked="@(newOptionTags.HasFlag(tag))"
+                               @onchange="e => ToggleNewTag(tag, (bool)e.Value!)" />
+                        <label class="form-check-label" for="new-tag-@tag">@tag</label>
+                    </div>
+                }
+            </div>
         </div>
     </section>
 
@@ -295,6 +309,7 @@ else
     private MealTag editOptionTags;
     private Guid? confirmDeleteOptionId;
     private string newOptionLabel = string.Empty;
+    private MealTag newOptionTags;
     private string? optionError;
 
     // ── attendance delete state ──
@@ -389,6 +404,11 @@ else
         editOptionTags = on ? (editOptionTags | tag) : (editOptionTags & ~tag);
     }
 
+    private void ToggleNewTag(MealTag tag, bool on)
+    {
+        newOptionTags = on ? (newOptionTags | tag) : (newOptionTags & ~tag);
+    }
+
     private async Task SaveOptionAsync(Guid optionId)
     {
         optionError = null;
@@ -402,8 +422,9 @@ else
     {
         optionError = null;
         if (string.IsNullOrWhiteSpace(newOptionLabel)) return;
-        await MealOptionService.CreateAsync(ev!.Id, newOptionLabel, MealTag.None);
+        await MealOptionService.CreateAsync(ev!.Id, newOptionLabel, newOptionTags);
         newOptionLabel = string.Empty;
+        newOptionTags = MealTag.None;
         mealOptions = await MealOptionService.ListByEventAsync(ev.Id);
     }
 
