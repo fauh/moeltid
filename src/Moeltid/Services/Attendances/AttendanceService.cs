@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Moeltid.Data;
 using Moeltid.Models;
 using Moeltid.Services.Email;
@@ -9,9 +10,11 @@ public class AttendanceService(
     AppDbContext db,
     TokenGenerator tokenGenerator,
     IEmailSender emailSender,
+    IOptions<EmailSettings> emailSettings,
     ILogger<AttendanceService> logger) : IAttendanceService
 {
     private const int MaxTokenAttempts = 3;
+    private readonly EmailSettings _emailSettings = emailSettings.Value;
 
     public async Task<Attendance> CreateAsync(CreateAttendanceRequest request)
     {
@@ -103,7 +106,7 @@ public class AttendanceService(
     private async Task SendEditLinkEmailAsync(Attendance attendance)
     {
         var ev = await db.Events.FindAsync(attendance.EventId);
-        var editPath = $"/e/{ev?.Slug}?t={attendance.EditToken}";
+        var editUrl = $"{_emailSettings.BaseUrl}/e/{ev?.Slug}?t={attendance.EditToken}";
         var subject = $"Your order for \"{ev?.Title}\"";
         var body = $"""
             Hi {attendance.Name},
@@ -111,12 +114,21 @@ public class AttendanceService(
             Your order has been submitted for "{ev?.Title}".
 
             To update or withdraw your order, use this link (save it — it's your only way back):
-            {editPath}
+            {editUrl}
 
             Do not share this link — anyone with it can edit your order.
             """;
 
-        await emailSender.SendAsync(attendance.Email!, subject, body);
+        try
+        {
+            await emailSender.SendAsync(attendance.Email!, subject, body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to send edit-link email to {Email} for attendance {AttendanceId}.",
+                attendance.Email, attendance.Id);
+        }
     }
 
     private static void ValidateOrderPayload(OrderType orderType, Guid? mealOptionId, string? freeTextOrder)

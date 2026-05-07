@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moeltid.Models;
+using Moeltid.Services.Email;
 using Moeltid.Services.Invitees;
 using Moeltid.Tests.Infrastructure;
 using Shouldly;
@@ -10,6 +12,8 @@ public class InviteeServiceTests : IClassFixture<InMemoryDatabaseFixture>
 {
     private readonly InMemoryDatabaseFixture _db;
     private readonly InviteeService _sut;
+    private static readonly IOptions<EmailSettings> DefaultEmailSettings =
+        Options.Create(new EmailSettings { BaseUrl = "https://test.example" });
 
     public InviteeServiceTests(InMemoryDatabaseFixture db)
     {
@@ -17,6 +21,7 @@ public class InviteeServiceTests : IClassFixture<InMemoryDatabaseFixture>
         _sut = new InviteeService(
             _db.CreateDbContext(),
             new NullEmailSender(),
+            DefaultEmailSettings,
             NullLogger<InviteeService>.Instance);
     }
 
@@ -238,7 +243,7 @@ public class InviteeServiceTests : IClassFixture<InMemoryDatabaseFixture>
         await SeedAttendanceAsync(eventId, inv3.Email);
 
         var recorder = new RecordingEmailSender();
-        var svc = new InviteeService(_db.CreateDbContext(), recorder, NullLogger<InviteeService>.Instance);
+        var svc = new InviteeService(_db.CreateDbContext(), recorder, DefaultEmailSettings, NullLogger<InviteeService>.Instance);
 
         await svc.SendRemindersAsync(eventId);
 
@@ -255,7 +260,7 @@ public class InviteeServiceTests : IClassFixture<InMemoryDatabaseFixture>
         await SeedAttendanceAsync(eventId, inv.Email);
 
         var recorder = new RecordingEmailSender();
-        var svc = new InviteeService(_db.CreateDbContext(), recorder, NullLogger<InviteeService>.Instance);
+        var svc = new InviteeService(_db.CreateDbContext(), recorder, DefaultEmailSettings, NullLogger<InviteeService>.Instance);
 
         await svc.SendRemindersAsync(eventId);
 

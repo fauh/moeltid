@@ -1,9 +1,12 @@
 @page "/recover"
+@using Microsoft.Extensions.Options
 @using Moeltid.Services.Email
 @using Moeltid.Services.Events
 @inject IEventService EventService
 @inject IEmailSender EmailSender
-@inject NavigationManager Nav
+@inject IOptions<EmailSettings> EmailSettingsOptions
+@inject ILogger<Recover> Logger
+
 
 <PageTitle>Recover manage link — Consid Måltid</PageTitle>
 
@@ -57,9 +60,10 @@ else
 
             // Always show the same success message — don't leak whether the email matched
             // any events. Send one email per matching event so each link is directly clickable.
+            var baseUrl = EmailSettingsOptions.Value.BaseUrl;
             foreach (var ev in events)
             {
-                var manageUrl = Nav.ToAbsoluteUri($"/e/{ev.Slug}/manage?t={ev.ManageToken}").ToString();
+                var manageUrl = $"{baseUrl}/e/{ev.Slug}/manage?t={ev.ManageToken}";
                 var subject = $"Your manage link for \"{ev.Title}\"";
                 var body = $"""
                     Hi {ev.OwnerName},
@@ -69,7 +73,16 @@ else
 
                     Save this — share it with co-admins. Anyone with the link can manage the event.
                     """;
-                await EmailSender.SendAsync(ev.OwnerEmail, subject, body);
+                try
+                {
+                    await EmailSender.SendAsync(ev.OwnerEmail, subject, body);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex,
+                        "Failed to send recover email to {Email} for event {EventId}.",
+                        ev.OwnerEmail, ev.Id);
+                }
             }
 
             submitted = true;

@@ -4,11 +4,13 @@
 @using Moeltid.Services.Events
 @using Moeltid.Services.Invitees
 @using Moeltid.Services.MealOptions
+@using Moeltid.Services.Reminders
 @using static Moeltid.Services.TimeZoneHelper
 @inject IEventService EventService
 @inject IMealOptionService MealOptionService
 @inject IAttendanceService AttendanceService
 @inject IInviteeService InviteeService
+@inject IReminderService ReminderService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -317,6 +319,55 @@ else
         </div>
     </section>
 
+    <!-- ── Scheduled reminder ───────────────────────────────────────── -->
+    <section class="mt-5">
+        <h2 class="h4">Scheduled reminder</h2>
+        <p class="text-muted small">
+            Set a date and time to automatically send a reminder to all email holders.
+            Attendees get a "you ordered X" note; invitees who haven't ordered get a "submit before deadline" nudge.
+        </p>
+
+        @if (reminderError is not null)
+        {
+            <div class="alert alert-danger py-2">@reminderError</div>
+        }
+
+        @if (reminder is not null && !reminder.IsSent)
+        {
+            <div class="alert alert-info py-2 mb-3">
+                Reminder scheduled for <strong>@ToLocalString(reminder.ScheduledFor, ev!.TimeZoneId, "yyyy-MM-dd HH:mm")</strong> (@ev.TimeZoneId).
+            </div>
+        }
+        else if (reminder?.IsSent == true)
+        {
+            <div class="alert alert-success py-2 mb-3">
+                Reminder sent on @ToLocalString(reminder.ScheduledFor, ev!.TimeZoneId, "yyyy-MM-dd HH:mm") (@ev.TimeZoneId).
+            </div>
+        }
+
+        @if (!ev!.IsClosed && reminder?.IsSent != true)
+        {
+            <div class="d-flex gap-2 align-items-end mb-2">
+                <div>
+                    <label class="form-label mb-1">Remind at (local event time)</label>
+                    <InputDate Type="InputDateType.DateTimeLocal" class="form-control form-control-sm"
+                               style="width:240px" @bind-Value="reminderPickedLocal" />
+                </div>
+                <button class="btn btn-sm btn-primary" @onclick="SaveReminderAsync"
+                        disabled="@savingReminder">
+                    @(savingReminder ? "Saving…" : (reminder is null ? "Schedule" : "Reschedule"))
+                </button>
+                @if (reminder is not null)
+                {
+                    <button class="btn btn-sm btn-outline-danger" @onclick="CancelReminderAsync"
+                            disabled="@savingReminder">
+                        Remove
+                    </button>
+                }
+            </div>
+        }
+    </section>
+
     <!-- ── Attendee orders ────────────────────────────────────────────── -->
     <section class="mt-5">
         <h2 class="h4">Orders (@attendances.Count)</h2>
@@ -447,6 +498,12 @@ else
     private bool sendingReminders;
     private bool remindersSent;
 
+    // ── scheduled reminder state ──
+    private Reminder? reminder;
+    private DateTime reminderPickedLocal = DateTime.Now.AddDays(1);
+    private bool savingReminder;
+    private string? reminderError;
+
     // ── attendance delete state ──
     private Guid? confirmDeleteAttendanceId;
 
@@ -472,6 +529,7 @@ else
         mealOptions = await MealOptionService.ListByEventAsync(ev!.Id);
         attendances = await AttendanceService.ListByEventAsync(ev.Id);
         invitees = await InviteeService.ListByEventAsync(ev.Id);
+        reminder = await ReminderService.GetByEventAsync(ev.Id);
     }
 
     private void PopulateEditModel()
@@ -631,6 +689,59 @@ else
     {
         var newToken = await EventService.RotateManageTokenAsync(ev!.Id);
         Nav.NavigateTo($"/e/{Slug}/manage?t={newToken}");
+    }
+
+    // ── reminder helpers ──
+
+    private async Task SaveReminderAsync()
+    {
+        reminderError = null;
+        var tz = SafeGetTz(ev!.TimeZoneId);
+        var whenUtc = TimeZoneInfo.ConvertTimeToUtc(
+            DateTime.SpecifyKind(reminderPickedLocal, DateTimeKind.Unspecified), tz);
+
+        if (whenUtc <= DateTimeOffset.UtcNow)
+        {
+            reminderError = "Reminder time must be in the future.";
+            return;
+        }
+        if (whenUtc >= ev.Deadline)
+        {
+            reminderError = "Reminder must be scheduled before the order deadline.";
+            return;
+        }
+        if (whenUtc >= ev.StartsAt)
+        {
+            reminderError = "Reminder must be scheduled before the event starts.";
+            return;
+        }
+
+        savingReminder = true;
+        try
+        {
+            reminder = await ReminderService.ScheduleAsync(ev.Id, whenUtc);
+        }
+        catch (Exception ex)
+        {
+            reminderError = $"Could not schedule reminder: {ex.Message}";
+        }
+        finally { savingReminder = false; }
+    }
+
+    private async Task CancelReminderAsync()
+    {
+        reminderError = null;
+        savingReminder = true;
+        try
+        {
+            await ReminderService.CancelAsync(ev!.Id);
+            reminder = null;
+        }
+        catch (Exception ex)
+        {
+            reminderError = $"Could not cancel reminder: {ex.Message}";
+        }
+        finally { savingReminder = false; }
     }
 
     private static TimeZoneInfo SafeGetTz(string ianaId)
