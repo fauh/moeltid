@@ -55,13 +55,20 @@ public class ReminderJob(
         var audience = ReminderAudience.Build(attendances, invitees);
         var deadlineLocal = TimeZoneHelper.ToLocalString(ev.Deadline, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
 
+        // Pre-build email → inviteeId lookup so BuildNotOrderedBody doesn't have to
+        // re-query the DB per recipient. Avoids N+1 + sync-EF-in-async-loop.
+        var inviteeByEmail = invitees.ToDictionary(
+            i => i.Email,
+            i => i.Id,
+            StringComparer.OrdinalIgnoreCase);
+
         var sent = 0;
         foreach (var recipient in audience)
         {
             var (subject, body) = recipient.Kind switch
             {
                 RecipientKind.HasOrdered => BuildOrderedBody(ev, recipient),
-                RecipientKind.NotOrdered => BuildNotOrderedBody(ev, recipient, deadlineLocal),
+                RecipientKind.NotOrdered => BuildNotOrderedBody(ev, recipient, deadlineLocal, inviteeByEmail),
                 _ => (null, null),
             };
 
@@ -106,12 +113,14 @@ public class ReminderJob(
         return (subject, body);
     }
 
-    private (string subject, string body) BuildNotOrderedBody(Event ev, RecipientLine recipient, string deadlineLocal)
+    private (string subject, string body) BuildNotOrderedBody(
+        Event ev,
+        RecipientLine recipient,
+        string deadlineLocal,
+        IReadOnlyDictionary<string, Guid> inviteeByEmail)
     {
-        var inviteeRecord = db.Invitees
-            .FirstOrDefault(i => i.EventId == ev.Id && i.Email == recipient.Email);
-        var inviteUrl = inviteeRecord is not null
-            ? $"{_emailSettings.BaseUrl}/e/{ev.Slug}?invite={inviteeRecord.Id}"
+        var inviteUrl = inviteeByEmail.TryGetValue(recipient.Email, out var inviteeId)
+            ? $"{_emailSettings.BaseUrl}/e/{ev.Slug}?invite={inviteeId}"
             : $"{_emailSettings.BaseUrl}/e/{ev.Slug}";
 
         var subject = $"Reminder: submit your order for \"{ev.Title}\"";

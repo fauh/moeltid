@@ -6,6 +6,65 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-07 — Phase 6 plan signed off + scope addition
+
+Wilhelm reviewed and signed off all four open questions; all matched the working assumptions or chose the simpler option:
+
+- **Download mechanism**: minimal-API GET endpoint `GET /e/{slug}/manage/orders.csv?t={token}`. Cleaner than Blazor + JS + base64.
+- **Audience**: include NoOrderYet rows ("a more complete picture is always better").
+- **CsvHelper** (not hand-roll).
+- **File name**: `event-{slug}-orders-{yyyy-MM-dd}.csv`.
+
+**Read-only GET endpoint exemption locked.** The Phase 4 hard rule "no minimal-API for manage actions" applies to mutating actions (form posts, cookies, antiforgery, HttpContext seam). Read-only GETs have none of those concerns and are exempt. The Phase 6 plan's §Decisions captures this as the precedent — future plans needing a read-only manage endpoint can reference it. No edit to `process.md` needed (task 6.7 dropped — original plan's conditional clarification task is unnecessary now that the precedent is set in plan §Decisions text).
+
+**Scope addition** at sign-off: when an event is closed via the manage page, the close-section transitions to a *"Event closed. Don't forget to download the orders CSV"* prompt with inline **[Download]** and **[Dismiss]** buttons. Folded into task 6.5's scope. Rationale: close is one-way and destructive — separating from export is cleaner than coupling them in a "Close and export" button-rename; inline state-change is more visible than a modal popup but less intrusive.
+
+Sign-off-decision review rule applied: no ripples; the four picks + scope addition don't break any other Decisions item.
+
+Phase 6 plan locked. **7 tasks** (down from 8 — the conditional `process.md` clarification dropped). Awaiting executor pickup.
+
+## 2026-05-07 — Phase 6 plan written
+
+`docs/phases/phase-6-plan.md` drafted: 8 tasks covering `CsvHelper` integration, a `CsvExportBuilder` pure helper (same pattern as `AttendanceVisibility` / `EventDisplayList` / `ReminderAudience`), tests covering the messy CSV edge cases (free-text with commas/quotes/newlines, tag flag combinations, BOM, anonymous attendees), and a download mechanism on the manage page.
+
+**Locked decisions**:
+- `CsvHelper` for RFC 4180 quoting.
+- UTF-8 with BOM for Excel compatibility.
+- Columns: Name, Email, OrderType, OptionLabel, FreeTextOrder, Tags, SubmittedAt_OwnerTZ, SubmittedAt_UTC.
+- Tokens (edit / manage / invitee IDs) **excluded** from the export — leaked CSVs shouldn't leak access credentials.
+- Anonymous attendees included with empty Email.
+
+**Four open questions** for sign-off:
+1. Download mechanism — minimal-API GET endpoint (Cowork's lean: spirit of the Phase 4 rule allows read-only GETs) vs Blazor + JS interop?
+2. Include NoOrderYet rows (invitees who didn't order)? Lean yes.
+3. `CsvHelper` vs hand-roll? Lean CsvHelper.
+4. File name format. Lean `event-{slug}-orders-{yyyy-MM-dd}.csv`.
+
+Phase 6 plan awaiting sign-off.
+
+## 2026-05-07 — Phase 5 truly closed (smoke test passed)
+
+Wilhelm ran the smoke test with the Resend API key configured via user-secrets. Reminders deliver as intended (status-aware bodies for attendees vs invitees-no-order); recover links deliver to matching owner emails. Phase 5's open tasks (5.1 Resend account, 5.7 manual smoke) both done.
+
+**Phase 5 closed.** All v1 functional email features and the scheduled-reminder feature are live.
+
+Tracker: task #6 → completed. Next is Phase 6 (CSV export) — small, focused phase.
+
+## 2026-05-07 — Phase 5 Cowork review
+
+Cowork-side review pass per `process.md` §"Phase exit". Executor used the new placeholder-for-review pattern correctly — discipline now reliably hands off between executor and Cowork.
+
+**🟡 → ✅ FIXED** in this pass: `ReminderJob.BuildNotOrderedBody` had a synchronous EF query inside an async foreach (`db.Invitees.FirstOrDefault(...)` per NotOrdered recipient). Three issues — sync-EF-in-async-context warning, N+1 query pattern, and redundant since the invitees were already loaded in memory at the start of `ExecuteAsync`. Fixed by pre-building a `Dictionary<string, Guid>` (email → inviteeId) once before the loop and passing it to `BuildNotOrderedBody`.
+
+**🟢 deferred** (recorded in `phase-5-plan.md` retro):
+- No direct tests for `ReminderJob.ExecuteAsync` itself (the per-recipient try/catch + body-building); Phase 8 polish.
+- Manage-page reminder validation uses inline `if` checks instead of `IValidatableObject` — consistent with Phase 4's edit-event form, inconsistent with `NewEvent.razor`. Pure consistency nit.
+- `ResendEmailSender` could set `Accept` and `User-Agent` headers as a courtesy.
+
+**Outstanding before truly closed**: tasks 5.1 (Resend account creation) and 5.7 (manual smoke test) are Wilhelm-side. Phase truly closes once the smoke test confirms all six email types (manage at create, recovery, edit-link, invite at create, manual remind-unordered, scheduled reminder) deliver real email with correct absolute URLs and TZ-localised datetimes.
+
+Tracker: task #6 (Phase 5) stays in_progress until smoke test passes.
+
 ## 2026-05-07 — Phase 5 complete (code; smoke test + Cowork review pending)
 
 **Executor**: Claude Code · **Branch**: `phase-5`
