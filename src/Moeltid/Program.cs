@@ -87,6 +87,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapAttendanceEndpoints();
+app.MapExportEndpoints();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 

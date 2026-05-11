@@ -124,6 +124,33 @@ Locked at sign-off so execution stays judgement-free. Hard rules from prior phas
 
 - Consider a small factory helper per service in `InMemoryDatabaseFixture` so constructor signature changes only need one place updated.
 
-### Cowork Phase Exit review
+### Cowork Phase Exit review (2026-05-07)
 
-_To be filled in by Cowork at review time._
+Performed by Cowork after executor flagged "_To be filled in by Cowork at review time._" — the discipline now reliably hands off cleanly between executor and Cowork.
+
+#### Findings
+
+🟡 **`ReminderJob.BuildNotOrderedBody` did a sync EF query in an async loop**, once per NotOrdered recipient. Three issues compounded: sync EF in async context (EF6+ runtime warning, can throw under load), N+1 query pattern, and redundant since `ExecuteAsync` already loaded all invitees into memory. ✅ **FIXED** in this review pass: pre-build a `Dictionary<string, Guid>` of email→inviteeId once before the foreach; `BuildNotOrderedBody` now takes the dictionary and uses `TryGetValue`. No more DB hit per recipient.
+
+🟢 **No tests for `ReminderJob.ExecuteAsync` itself**. `ReminderService` and `ReminderAudience` are well covered, but the job's body-building + per-recipient try/catch isn't directly tested. Could add an integration-style test using `RecordingEmailSender`. Phase 8 polish or whenever the body logic gets touched.
+
+🟢 **Manage-page reminder validation is inline `if` checks** rather than `IValidatableObject` (line ~705-715: must be in future, before deadline, before StartsAt). Consistent with the inline pattern in `ManageEvent.razor`'s edit-event form (Phase 4). Both could move to `IValidatableObject` for consistency with `NewEvent.razor`'s pattern. Phase 8 polish nit.
+
+🟢 **`ResendEmailSender`** doesn't set `Accept` or `User-Agent` headers. Resend works without these but adding them is a courtesy. Minor; only relevant if Resend's API changes its content-negotiation defaults.
+
+🟢 **Tasks 5.1 (Resend account creation) and 5.7 (manual smoke test)** are correctly flagged as Wilhelm-side; the executor can't perform either. The retro notes them as "requires Wilhelm to supply the API key and run the real-send verification" — accurate. **Smoke test is still required before truly closing the phase.**
+
+#### What went well — to carry forward
+
+- **Retro discipline is now reliable**: per-task tick table, honest deviations (5 listed including specific test failures and fixes), surprises noted with framework-level details (`Hangfire.Storage.SQLite` namespace, missing `OrderType.NoOrder`), and proper "_To be filled in by Cowork_" placeholder for the review section.
+- **`ReminderAudience` pure helper** continues the pattern (`AttendanceVisibility`, `EventDisplayList`, now `ReminderAudience`) — testable without DB, clear contract, defensive case-insensitive comparisons. This is now an established pattern: any layered/joined view should have a pure helper.
+- **DI swap by config flag** in `Program.cs` is clean — `UseRealProvider == true` → typed `HttpClient<IEmailSender, ResendEmailSender>`; otherwise `ConsoleEmailSender`. Allows running locally with stub email or live with real provider via a single config toggle.
+- **Fail-fast startup check** with a helpful message pointing at user-secrets and env-var solutions. The error is what the executor would write if they were debugging the issue — saves future-self the lookup.
+- **On-close hook** in `EventService.CloseAsync` cancels pending reminder jobs. Closing the event correctly stops the reminder from firing later.
+- **Hangfire dashboard environment-gated** to Development. No production admin route — consistent with the no-auth design model.
+
+#### Outstanding before truly closed
+
+- ~~**5.1 + 5.7**: Wilhelm runs the manual smoke test against Resend~~ — ✅ **PASSED 2026-05-07**. Wilhelm confirmed reminders and recover links both deliver as intended. API key set via user-secrets per the locked secret-handling plan.
+
+**Phase 5 truly closed.**

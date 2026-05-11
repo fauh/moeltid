@@ -36,4 +36,20 @@ public static class TimeZoneHelper
             return utc.ToString(format);
         }
     }
+
+    /// <summary>
+    /// Returns the <see cref="TimeZoneInfo"/> for the given IANA TZ ID,
+    /// falling back to UTC if the ID is unknown or unsupported.
+    /// </summary>
+    public static TimeZoneInfo SafeGetTz(string ianaId)
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(ianaId);
+        }
+        catch
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
 }
