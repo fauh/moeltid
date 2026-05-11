@@ -17,7 +17,8 @@ public static class ExportEndpoints
         app.MapGet("/e/{slug}/manage/orders.csv", async (
             string slug,
             string? t,
-            AppDbContext db) =>
+            AppDbContext db,
+            HttpContext httpContext) =>
         {
             var ev = await db.Events.FirstOrDefaultAsync(e => e.Slug == slug);
             if (ev is null || ev.ManageToken != t)
@@ -40,6 +41,11 @@ public static class ExportEndpoints
             var tz = SafeGetTz(ev.TimeZoneId);
             var dateStr = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz).ToString("yyyy-MM-dd");
             var fileName = $"event-{ev.Slug}-orders-{dateStr}.csv";
+
+            // Prevent caching of sensitive order data
+            httpContext.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+            httpContext.Response.Headers.Pragma = "no-cache";
+            httpContext.Response.Headers.Expires = "0";
 
             return Results.File(bytes, "text/csv; charset=utf-8", fileName);
         });
