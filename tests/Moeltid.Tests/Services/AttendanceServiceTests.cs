@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moeltid.Models;
 using Moeltid.Services;
 using Moeltid.Services.Attendances;
@@ -12,6 +13,8 @@ public class AttendanceServiceTests : IClassFixture<InMemoryDatabaseFixture>
 {
     private readonly InMemoryDatabaseFixture _db;
     private readonly AttendanceService _sut;
+    private static readonly IOptions<EmailSettings> DefaultEmailSettings =
+        Options.Create(new EmailSettings { BaseUrl = "https://test.example" });
 
     public AttendanceServiceTests(InMemoryDatabaseFixture db)
     {
@@ -20,6 +23,7 @@ public class AttendanceServiceTests : IClassFixture<InMemoryDatabaseFixture>
             _db.CreateDbContext(),
             new TokenGenerator(),
             new NullEmailSender(),
+            DefaultEmailSettings,
             NullLogger<AttendanceService>.Instance);
     }
 

@@ -131,6 +131,7 @@ public class MealOptionServiceTests : IClassFixture<InMemoryDatabaseFixture>
             _db.CreateDbContext(),
             new TokenGenerator(),
             new NullEmailSender(),
+            Microsoft.Extensions.Options.Options.Create(new Moeltid.Services.Email.EmailSettings { BaseUrl = "https://test.example" }),
             NullLogger<AttendanceService>.Instance);
 
         var a1 = await attendanceSvc.CreateAsync(new CreateAttendanceRequest(

@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<MealOption> MealOptions => Set<MealOption>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<Invitee> Invitees => Set<Invitee>();
+    public DbSet<Reminder> Reminders => Set<Reminder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -60,6 +61,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             i.HasOne(x => x.Event)
                 .WithMany()
                 .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Reminder>(r =>
+        {
+            // EventId is both PK and FK — enforces one reminder per event at schema level
+            r.HasKey(x => x.EventId);
+            r.HasOne(x => x.Event)
+                .WithOne()
+                .HasForeignKey<Reminder>(x => x.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

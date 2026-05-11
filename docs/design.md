@@ -58,7 +58,7 @@ Out (deferred):
 | Database | **SQLite** for v1. Migration path to PostgreSQL if traffic grows. | Single file, zero ops. EF Core supports both with the same code. |
 | Auth | **None.** Manage access via emailed token in URL; attendee identity via cookie + optional email. | The app is intentionally accountless. See §8. |
 | Background jobs | **Hangfire** | For the single per-event reminder. SQLite-backed storage. |
-| Email | **Resend** or **Brevo** (free tier) — picked at Phase 5. | Critical: the manage link arrives by email. Until Phase 5, the success page shows the link directly + console-logs the would-be email. |
+| Email | **Resend** (locked at Phase 5). | Critical: the manage link arrives by email. Dev uses `ConsoleEmailSender`; prod uses `ResendEmailSender` behind `IEmailSender`. API key via `dotnet user-secrets` in dev, host env var `EmailSettings__ApiKey` in production. `EmailSettings:BaseUrl` carries the absolute URL base for all email links. |
 | Container | **Docker** | Portability. Linux containers from `mcr.microsoft.com/dotnet/aspnet:10.0-alpine`. |
 | Host | **Render** or **Fly.io** free tier — picked at Phase 1. | Both accept Dockerfiles, both have free tiers. Replaceable later. |
 | CI/CD | **GitHub Actions** | Standard. Build, test, push image, deploy. |
@@ -160,7 +160,7 @@ Deployment is deferred to **Phase 7** — early iteration runs locally only via 
 - **Build**: `Dockerfile` in repo root, multi-stage build (SDK 10 → ASP.NET runtime 10 on Alpine).
 - **Runtime image**: `mcr.microsoft.com/dotnet/aspnet:10.0-alpine`.
 - **Host**: Render or Fly.io free tier — picked at Phase 7. Persistent volume for the SQLite file and Hangfire data.
-- **Email**: Resend or Brevo. Domain verification at Phase 5.
+- **Email**: **Resend** (locked Phase 5). Domain verification needed before production launch. Dev and staging use Resend's sandbox / verified-address mode. `EmailSettings:UseRealProvider` feature flag controls the DI swap. `EmailSettings:BaseUrl` must be set to the deployment URL in production so email links point to the right host.
 - **CI/CD**: GitHub Actions on push to `main` — build, test, push image, trigger deploy. Set up at Phase 7.
 - **Domain**: TBD. Use the host's free subdomain initially.
 - **Backups**: nightly cron in the container that copies the SQLite file to a remote bucket. Decision deferred to Phase 9.
@@ -217,8 +217,8 @@ Every datetime in the database is UTC. `Event.TimeZoneId` (IANA) is captured at 
 ### Still open
 - [x] **Slug format** — confirmed 2026-04-30: `{kebab-title}-{6-char-random}`, falling back to `event-{6-char-random}` for empty/long titles.
 - [ ] **Attendee email — required?** *Working assumption*: optional. Required would enable cross-device edits for everyone but lose anonymous quick-order. **Confirm before Phase 3.**
-- [ ] **Reminder email content & audience** — to all attendees, or only those without an order yet? *Working assumption*: all attendees who provided email, with a "you have/haven't ordered yet" line. **Confirm before Phase 5.**
-- [ ] **Reminder vs. deadline guard** — should the UI prevent reminders scheduled after the deadline? *Working assumption*: yes. **Confirm before Phase 5.**
+- [x] **Reminder email content & audience** — confirmed 2026-05-07 (Phase 5): all email holders (attendees with email + invitees without an order). Body is status-aware: attendees get "you ordered X"; invitees-no-order get "submit by deadline". Implemented in `ReminderAudience.Build`.
+- [x] **Reminder vs. deadline guard** — confirmed 2026-05-07 (Phase 5): yes. Manage-page UI validates: must be after `now`, before `Deadline`, before `StartsAt`.
 - [ ] **Event-creation rate-limit** — *working assumption*: 10 events / hour / IP. **Confirm before Phase 8.**
 - [ ] **Public-page attendee visibility default** — confirmed default on, but should we display *names only* or *names + orders* when the toggle is off? *Working assumption*: names only (so an attendee can see how many people are coming without seeing what they're eating). Could also be "nothing visible to other attendees". **Confirm before Phase 3.**
 - [ ] **Event retention policy** *(raised at Phase 4 sign-off, 2026-05-04)* — events are short-lived by design; data shouldn't accumulate forever. Open questions: how long after the deadline does an event live? what's deleted at retention end (the whole event including attendances, or just orders)? does the owner get notified before deletion? *Working assumption*: hard-delete the event and its attendances 90 days after `Deadline`, no warning email. Possibly a warning email at 75 days if email-sending exists by then. **Confirm before Phase 9.** Lives with the other production-hardening work (rate limits, backups, domain) in Phase 9.

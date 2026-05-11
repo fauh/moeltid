@@ -6,6 +6,32 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-07 — Phase 5 complete (code; smoke test + Cowork review pending)
+
+**Executor**: Claude Code · **Branch**: `phase-5`
+
+All 18 tasks delivered. 96 tests passing (up from 80 at Phase 4.5 close). Tasks 5.1 (Resend account) and 5.7 (manual smoke test) require Wilhelm to supply the API key and run the real-send verification; everything else is in.
+
+Key work:
+- **`EmailSettings` config record** (`BaseUrl`, `FromAddress`, `ApiKey`, `UseRealProvider`) with DI binding, fail-fast startup check when `UseRealProvider` is true.
+- **`ResendEmailSender`** — typed `HttpClient`, Bearer auth, throws on non-2xx.
+- **DI swap** in `Program.cs`: `UseRealProvider == true` → `ResendEmailSender`; otherwise `ConsoleEmailSender`.
+- **BaseUrl absolutification**: all 5 email-building call sites updated (`EventService` manage + invite, `AttendanceService` edit-link, `InviteeService` reminders, `Recover.razor` recovery). Relative paths `/e/…` → `{BaseUrl}/e/…`.
+- **Best-effort email sends**: every `emailSender.SendAsync` call wrapped in `try/catch` + `LogWarning`. Failed email never throws back into the originating action.
+- **Hangfire** (`Hangfire.Core`, `Hangfire.AspNetCore`, `Hangfire.Storage.SQLite`): SQLite-backed job storage, background server in all envs, dashboard gated to Development.
+- **`Reminder` entity** (`EventId` as PK + FK; `ScheduledFor` UTC; `IsSent`; `HangfireJobId`). `AddReminder` EF migration.
+- **`IReminderService` + `ReminderService`**: `ScheduleAsync` (creates/updates row + schedules Hangfire job), `CancelAsync` (deletes row + cancels job), `GetByEventAsync`. Reschedule cancels old job first.
+- **`ReminderAudience.Build`** pure helper: merges attendances + invitees → `IReadOnlyList<RecipientLine>` with `HasOrdered` / `NotOrdered` kind + order text. Anonymous attendees (no email) excluded.
+- **`ReminderJob`**: Hangfire job entry point — loads audience, builds per-recipient bodies, sends best-effort (one failure doesn't abort batch), marks `IsSent = true`.
+- **`EventService.CloseAsync`** on-close hook: calls `ReminderService.CancelAsync` so a closed event never fires a stale reminder.
+- **Manage-page reminder section**: datetime picker (local event TZ), Schedule / Reschedule / Remove buttons, validation (must be after now, before Deadline, before StartsAt), status display.
+- **Tests**: 96 passing. New: `ReminderAudienceTests` (8 tests, pure), `ReminderServiceTests` (9 tests, fake `IBackgroundJobClient`). Existing `EventServiceTests`, `AttendanceServiceTests`, `InviteeServiceTests`, `MealOptionServiceTests` updated for new constructor signatures.
+- **`design.md`**: §4 Resend locked, §7 email provider config documented, §9 reminder audience + deadline-guard questions marked resolved.
+
+**Remaining before phase exit**: 5.1 Resend account + API key, 5.7 smoke test, Cowork review.
+
+---
+
 ## 2026-05-06 — Phase 4.5 complete
 
 **Executor**: Claude Code · **Branch**: `phase-4.5`

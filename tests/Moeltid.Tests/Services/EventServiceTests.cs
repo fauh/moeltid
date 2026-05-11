@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moeltid.Models;
 using Moeltid.Services;
 using Moeltid.Services.Email;
 using Moeltid.Services.Events;
+using Moeltid.Services.Reminders;
 using Moeltid.Tests.Infrastructure;
 using Shouldly;
 
@@ -13,6 +15,8 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 {
     private readonly InMemoryDatabaseFixture _db;
     private readonly EventService _sut;
+    private static readonly IOptions<EmailSettings> DefaultEmailSettings =
+        Options.Create(new EmailSettings { BaseUrl = "https://test.example" });
 
     public EventServiceTests(InMemoryDatabaseFixture db)
     {
@@ -22,6 +26,8 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
             new SlugGenerator(new TokenGenerator()),
             new TokenGenerator(),
             new NullEmailSender(),
+            DefaultEmailSettings,
+            new NullReminderService(),
             NullLogger<EventService>.Instance);
     }
 
@@ -294,4 +300,13 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
 file sealed class NullEmailSender : IEmailSender
 {
     public Task SendAsync(string to, string subject, string body) => Task.CompletedTask;
+}
+
+file sealed class NullReminderService : IReminderService
+{
+    public Task<Moeltid.Models.Reminder> ScheduleAsync(Guid eventId, DateTimeOffset whenUtc) =>
+        Task.FromResult(new Moeltid.Models.Reminder { EventId = eventId, ScheduledFor = whenUtc });
+    public Task CancelAsync(Guid eventId) => Task.CompletedTask;
+    public Task<Moeltid.Models.Reminder?> GetByEventAsync(Guid eventId) =>
+        Task.FromResult<Moeltid.Models.Reminder?>(null);
 }

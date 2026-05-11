@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Moeltid.Data;
 using Moeltid.Models;
 using Moeltid.Services.Email;
+using Moeltid.Services.Reminders;
 
 namespace Moeltid.Services.Events;
 
@@ -10,9 +12,12 @@ public class EventService(
     SlugGenerator slugGenerator,
     TokenGenerator tokenGenerator,
     IEmailSender emailSender,
+    IOptions<EmailSettings> emailSettings,
+    IReminderService reminderService,
     ILogger<EventService> logger) : IEventService
 {
     private const int MaxSlugAttempts = 3;
+    private readonly EmailSettings _emailSettings = emailSettings.Value;
 
     public async Task<Event> CreateAsync(CreateEventRequest request)
     {
@@ -117,6 +122,10 @@ public class EventService(
 
         ev.IsClosed = true;
         await db.SaveChangesAsync();
+
+        // Cancel any pending reminder — a closed event shouldn't send "you haven't ordered yet"
+        await reminderService.CancelAsync(id);
+
         return ev;
     }
 
@@ -141,7 +150,9 @@ public class EventService(
 
     private async Task SendInviteEmailAsync(Event ev, Invitee invitee)
     {
-        var inviteUrl = $"/e/{ev.Slug}?invite={invitee.Id}";
+        var inviteUrl = $"{_emailSettings.BaseUrl}/e/{ev.Slug}?invite={invitee.Id}";
+        var startsAtLocal = TimeZoneHelper.ToLocalString(ev.StartsAt, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
+        var deadlineLocal = TimeZoneHelper.ToLocalString(ev.Deadline, ev.TimeZoneId, "yyyy-MM-dd HH:mm");
         var subject = $"You're invited to \"{ev.Title}\"";
         var body = $"""
             Hi,
@@ -151,15 +162,26 @@ public class EventService(
             Submit your order here:
             {inviteUrl}
 
-            Event date: {ev.StartsAt:yyyy-MM-dd HH:mm} UTC
-            Order deadline: {ev.Deadline:yyyy-MM-dd HH:mm} UTC
+            Event date: {startsAtLocal} ({ev.TimeZoneId})
+            Order deadline: {deadlineLocal} ({ev.TimeZoneId})
             """;
-        await emailSender.SendAsync(invitee.Email, subject, body);
+
+        try
+        {
+            await emailSender.SendAsync(invitee.Email, subject, body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to send invite email to {Email} for event {EventId}.",
+                invitee.Email, ev.Id);
+        }
     }
 
     private async Task SendManageLinkEmailAsync(Event ev)
     {
-        var managePath = $"/e/{ev.Slug}/manage?t={ev.ManageToken}";
+        var manageUrl = $"{_emailSettings.BaseUrl}/e/{ev.Slug}/manage?t={ev.ManageToken}";
+        var publicUrl = $"{_emailSettings.BaseUrl}/e/{ev.Slug}";
         var subject = $"Your manage link for \"{ev.Title}\"";
         var body = $"""
             Hi {ev.OwnerName},
@@ -167,13 +189,22 @@ public class EventService(
             Your event "{ev.Title}" has been created.
 
             Manage your event here (save this link — it's your only way back in):
-            {managePath}
+            {manageUrl}
 
             Share the public URL with attendees:
-            /e/{ev.Slug}
+            {publicUrl}
             """;
 
-        await emailSender.SendAsync(ev.OwnerEmail, subject, body);
+        try
+        {
+            await emailSender.SendAsync(ev.OwnerEmail, subject, body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to send manage-link email to {Email} for event {EventId}.",
+                ev.OwnerEmail, ev.Id);
+        }
     }
 
     private static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
