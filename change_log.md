@@ -6,6 +6,19 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-11 — Phase 6 complete
+
+**CSV export** delivered. Manage-token holders can download `event-{slug}-orders-{date}.csv` from the manage page at any time; closing an event surfaces a one-time prompt to grab the CSV before moving on.
+
+**What landed:**
+- `CsvHelper` 33.1.0 added. `CsvExportBuilder` pure static helper (same pattern as `ReminderAudience`) takes `Event` + `IReadOnlyList<Attendance>` + `IReadOnlyList<Invitee>` and returns a UTF-8-with-BOM `byte[]`. Columns: Name, Email, OrderType, OptionLabel, FreeTextOrder, Tags, SubmittedAt_OwnerTZ, SubmittedAt_UTC. NoOrderYet rows for invitees who haven't ordered. Tokens excluded.
+- 11 `CsvExportBuilderTests` — BOM assertion, FreeText/PresetOption columns, multi-tag serialization, commas+quotes round-trip, anonymous attendee, NoOrderYet, no-doubling of invitees who ordered, token exclusion, Stockholm TZ offset.
+- Minimal-API GET endpoint `GET /e/{slug}/manage/orders.csv?t={token}`. Returns 404 for bad token or unknown slug. Registered in `Program.cs`. Exempt from Phase 4 "no minimal-API for manage actions" rule (read-only; no antiforgery/cookie/HttpContext concerns).
+- `ManageEvent.razor`: Orders-section flex header with conditional download anchor (disabled-look when zero attendees and invitees); post-close prompt with inline **[Download]** and **[Dismiss]** on `ev.IsClosed && !postCloseDownloadDismissed`.
+- `design.md` §3 updated with CSV export bullet.
+
+**Stats**: 107 tests passing (+11 from Phase 5's 96). Build: 0 errors, 45 warnings (all pre-existing).
+
 ## 2026-05-07 — Phase 6 plan signed off + scope addition
 
 Wilhelm reviewed and signed off all four open questions; all matched the working assumptions or chose the simpler option:

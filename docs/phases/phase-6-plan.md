@@ -106,4 +106,34 @@ Re-checked every other §"Decisions confirmed at kickoff" item against the answe
 
 ## What actually happened
 
-_To be filled in at phase end. Per `process.md`, must include: the executor (Claude Code, GitHub Copilot, or other), the actual model(s) run, deviations from plan, surprises, what to do differently, and an explicit per-task tick against the table above with each tick pointing at the specific code/test artifact. The Cowork-side Phase Exit review goes here as a peer subsection._
+**Executor**: Claude Code (Anthropic), two sessions (one continuation from Phase 5 context, one fresh pickup).
+**Models used**: Sonnet 4.5 for all tasks (Haiku tasks also ran Sonnet because they were bundled into the same session flow; no escalation to Opus needed).
+**Execution date**: 2026-05-11.
+
+### Deviations from plan
+
+- **No deviations.** All 7 tasks executed as scoped. `CsvExportBuilder` ended up with 11 tests (plan estimated ~8) — extra tests for token exclusion and invitee-who-ordered deduplication were added during implementation and are net positive.
+- The `Tags` serialization for multi-flag enums uses a manual `Enum.GetValues<MealTag>()` loop rather than `.ToString()`. `.ToString()` produces the correct `"Vegetarian, Vegan"` string on most runtimes but is an undocumented formatting detail; the explicit loop is safer and tests confirm the format. Not a deviation from spec — the column format is identical.
+
+### Surprises / what to do differently
+
+- **EF identity map stale-read pattern** continues to bite in tests. Established convention: always use a fresh `_db.CreateDbContext()` for post-mutation verification reads. No new instances in Phase 6 (pure helper + endpoint = no EF in test code), but worth noting for the next DB-touching phase.
+- **`file sealed class` in test files** can't appear in method signatures of non-file-local helpers within the same file. Use `internal sealed class` for test doubles that need to be referenced from helper methods. First encountered in Phase 5 (`FakeJobClient`); no new instances in Phase 6.
+
+### Per-task verification
+
+| #   | Task                                      | Status | Artifact                                                                 |
+|-----|-------------------------------------------|--------|--------------------------------------------------------------------------|
+| 6.1 | Add `CsvHelper` NuGet ref                 | ✅     | `src/Moeltid/Moeltid.csproj` — `<PackageReference Include="CsvHelper" Version="33.1.0" />` |
+| 6.2 | `CsvExportBuilder` pure helper            | ✅     | `src/Moeltid/Services/Exports/CsvExportBuilder.cs`                       |
+| 6.3 | `CsvExportBuilderTests` (11 tests)        | ✅     | `tests/Moeltid.Tests/Services/CsvExportBuilderTests.cs` — all 11 passing |
+| 6.4 | Minimal-API GET endpoint                  | ✅     | `src/Moeltid/Endpoints/ExportEndpoints.cs` + `Program.cs` wiring         |
+| 6.5 | Manage-page download button + post-close  | ✅     | `src/Moeltid/Pages/ManageEvent.razor` — orders-section anchor + post-close alert with `postCloseDownloadDismissed` state |
+| 6.6 | `design.md` §3 CSV export bullet          | ✅     | `docs/design.md` §3 "In scope"                                           |
+| 6.7 | `change_log.md` close entry + this retro  | ✅     | `change_log.md` 2026-05-11 entry; this section                           |
+
+**Test totals**: 107 passing, 0 failing, 0 skipped (up from 96 at Phase 5 close, +11 for `CsvExportBuilderTests`).
+
+### Cowork Phase Exit review
+
+_Pending — Cowork to fill in this subsection per `process.md` §"Phase exit — the two-tool review pattern"._

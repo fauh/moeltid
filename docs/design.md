@@ -27,6 +27,7 @@ One cohesive scope. No prototype/hardening split. The app is publicly usable fro
 
 In:
 - **Anonymous event creation.** Creator provides title, description, deadline, owner name, owner email, optional preset meal options, free-text toggle, and an "attendee orders visible" toggle (default on).
+- **CSV export.** From the manage page, the owner can download all orders as a UTF-8-with-BOM CSV (`event-{slug}-orders-{date}.csv`). Columns: Name, Email, OrderType, OptionLabel, FreeTextOrder, Tags, SubmittedAt_OwnerTZ, SubmittedAt_UTC. Invitees without an order appear as `NoOrderYet` rows. Tokens are excluded. After closing the event, a prompt offers the download immediately.
 - A `ManageToken` is generated and emailed to the owner. The success screen also displays the manage URL once. The token can be re-requested by entering the owner email — same token returned, so links shared with co-admins keep working.
 - **Public event URL** `/e/{slug}`. Attendees enter their name (and optional email), pick a preset meal option or write a free-text order, submit.
 - A cookie remembers the attendee on this device so they can edit/withdraw their order. If they provided email, an edit link is also emailed.
