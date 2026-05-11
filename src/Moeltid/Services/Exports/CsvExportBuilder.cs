@@ -55,7 +55,7 @@ public static class CsvExportBuilder
         // Track which invitee emails have an attendance so we can emit NoOrderYet for the rest
         var orderedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var tz = SafeGetTz(ev.TimeZoneId);
+        var tz = TimeZoneHelper.SafeGetTz(ev.TimeZoneId);
 
         foreach (var a in attendances)
         {
@@ -135,10 +135,5 @@ public static class CsvExportBuilder
             '=' or '+' or '-' or '@' or '\t' => "'" + value,
             _ => value,
         };
-    }
-
-    private static TimeZoneInfo SafeGetTz(string ianaId)
-    {
-        return TimeZoneHelper.SafeGetTz(ianaId);
     }
 }
