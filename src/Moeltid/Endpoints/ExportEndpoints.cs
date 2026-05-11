@@ -24,16 +24,20 @@ public static class ExportEndpoints
             if (ev is null || ev.ManageToken != t)
                 return Results.NotFound();
 
-            var attendances = await db.Attendances
+            // OrderBy must happen client-side: SQLite cannot translate DateTimeOffset
+            // columns in ORDER BY clauses (throws NotSupportedException at runtime).
+            var attendances = (await db.Attendances
                 .Where(a => a.EventId == ev.Id)
                 .Include(a => a.MealOption)
+                .ToListAsync())
                 .OrderBy(a => a.SubmittedAt)
-                .ToListAsync();
+                .ToList();
 
-            var invitees = await db.Invitees
+            var invitees = (await db.Invitees
                 .Where(i => i.EventId == ev.Id)
+                .ToListAsync())
                 .OrderBy(i => i.InvitedAt)
-                .ToListAsync();
+                .ToList();
 
             var bytes = CsvExportBuilder.Build(ev, attendances, invitees);
 
