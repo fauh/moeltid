@@ -253,4 +253,41 @@ public class CsvExportBuilderTests
         row!["SubmittedAt_OwnerTZ"].ShouldBe("2026-06-10 13:24 Europe/Stockholm");
         row["SubmittedAt_UTC"].ShouldBe("2026-06-10 11:24Z");
     }
+
+    [Theory]
+    [InlineData("=SUM(A1:A10)", "'=SUM(A1:A10)")]
+    [InlineData("+1234", "'+1234")]
+    [InlineData("-DROP TABLE", "'-DROP TABLE")]
+    [InlineData("@SUM(1+1)", "'@SUM(1+1)")]
+    [InlineData("\t=cmd", "'\t=cmd")]
+    [InlineData("Safe text", "Safe text")]
+    [InlineData("", "")]
+    public void SanitizeCsvField_NeutralizesFormulaInjection(string input, string expected)
+    {
+        CsvExportBuilder.SanitizeCsvField(input).ShouldBe(expected);
+    }
+
+    [Fact]
+    public void Build_FormulaInjectionInName_IsSanitized()
+    {
+        var ev = MakeEvent();
+        var attendance = MakeFreeTextAttendance(ev.Id, name: "=HYPERLINK(\"evil.com\",\"click\")");
+        var bytes = CsvExportBuilder.Build(ev, [attendance], []);
+        var rows = ParseCsv(bytes);
+
+        var row = rows[0] as IDictionary<string, object>;
+        row!["Name"].ShouldBe("'=HYPERLINK(\"evil.com\",\"click\")");
+    }
+
+    [Fact]
+    public void Build_FormulaInjectionInFreeText_IsSanitized()
+    {
+        var ev = MakeEvent();
+        var attendance = MakeFreeTextAttendance(ev.Id, freeText: "=cmd|' /C calc");
+        var bytes = CsvExportBuilder.Build(ev, [attendance], []);
+        var rows = ParseCsv(bytes);
+
+        var row = rows[0] as IDictionary<string, object>;
+        row!["FreeTextOrder"].ShouldBe("'=cmd|' /C calc");
+    }
 }

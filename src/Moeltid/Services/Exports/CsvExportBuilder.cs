@@ -65,13 +65,13 @@ public static class CsvExportBuilder
             {
                 Models.OrderType.PresetOption => (
                     "PresetOption",
-                    a.MealOption?.Label ?? string.Empty,
+                    SanitizeCsvField(a.MealOption?.Label ?? string.Empty),
                     string.Empty,
                     SerializeTags(a.MealOption?.Tags ?? MealTag.None)),
                 Models.OrderType.FreeText => (
                     "FreeText",
                     string.Empty,
-                    a.FreeTextOrder ?? string.Empty,
+                    SanitizeCsvField(a.FreeTextOrder ?? string.Empty),
                     string.Empty),
                 _ => ("Unknown", string.Empty, string.Empty, string.Empty),
             };
@@ -81,8 +81,8 @@ public static class CsvExportBuilder
             var utcStr = $"{a.SubmittedAt:yyyy-MM-dd HH:mm}Z";
 
             yield return new ExportRow(
-                Name: a.Name,
-                Email: a.Email ?? string.Empty,
+                Name: SanitizeCsvField(a.Name),
+                Email: SanitizeCsvField(a.Email ?? string.Empty),
                 OrderType: orderType,
                 OptionLabel: optionLabel,
                 FreeTextOrder: freeText,
@@ -97,8 +97,8 @@ public static class CsvExportBuilder
             if (orderedEmails.Contains(inv.Email)) continue;
 
             yield return new ExportRow(
-                Name: inv.Email,   // no name available for unfulfilled invitees
-                Email: inv.Email,
+                Name: SanitizeCsvField(inv.Email),   // no name available for unfulfilled invitees
+                Email: SanitizeCsvField(inv.Email),
                 OrderType: "NoOrderYet",
                 OptionLabel: string.Empty,
                 FreeTextOrder: string.Empty,
@@ -119,6 +119,22 @@ public static class CsvExportBuilder
             if (tags.HasFlag(flag)) parts.Add(flag.ToString());
         }
         return string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// Neutralizes CSV/spreadsheet formula injection by prefixing values that begin
+    /// with formula trigger characters (=, +, -, @, or tab) with an apostrophe.
+    /// This prevents spreadsheet apps from interpreting user-supplied content as formulas.
+    /// </summary>
+    public static string SanitizeCsvField(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+
+        return value[0] switch
+        {
+            '=' or '+' or '-' or '@' or '\t' => "'" + value,
+            _ => value,
+        };
     }
 
     private static TimeZoneInfo SafeGetTz(string ianaId)
