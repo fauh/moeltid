@@ -123,7 +123,6 @@ public static class CsvExportBuilder
 
     private static TimeZoneInfo SafeGetTz(string ianaId)
     {
-        try { return TimeZoneInfo.FindSystemTimeZoneById(ianaId); }
-        catch { return TimeZoneInfo.Utc; }
+        return TimeZoneHelper.SafeGetTz(ianaId);
     }
 }
