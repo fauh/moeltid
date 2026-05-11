@@ -373,7 +373,7 @@ else
         <div class="d-flex align-items-baseline gap-3 mb-2">
             <h2 class="h4 mb-0">Orders (@attendances.Count)</h2>
             @{
-                var hasExportData = attendances.Count > 0 || invitees.Any(i => !attendances.Any(a => a.Email == i.Email));
+                var hasExportData = attendances.Any() || invitees.Any();
             }
             @if (hasExportData)
             {
