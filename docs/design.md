@@ -4,7 +4,7 @@
 
 ## 1. Vision
 
-A web app for scheduling events and collecting food orders. Anyone with the link can sign up to an event and submit a meal order — preset option or free text. The event creator gets a manage link by email and uses it to edit the event, see all orders, schedule a reminder, and export the order list for accounting.
+A web app for scheduling events and collecting food orders. Events are public by default — anyone can browse `/events` and sign up. The event creator gets a manage link by email and uses it to edit the event, see all orders, schedule a reminder, and export the order list for accounting. Owners who want a private event tick a checkbox; private events are reachable only by direct link.
 
 Free-text orders are the primary, must-be-best-supported workflow. Preset options exist but are secondary.
 
@@ -26,8 +26,8 @@ Multiple co-administrators are supported by the simple expedient of sharing the 
 One cohesive scope. No prototype/hardening split. The app is publicly usable from the moment it deploys.
 
 In:
-- **Anonymous event creation.** Creator provides title, description, deadline, owner name, owner email, optional preset meal options, free-text toggle, and an "attendee orders visible" toggle (default on).
-- **Events discovery (`/my-events`).** Any user can enter their email to receive a one-time magic link. Clicking the link opens a list of every event tied to that email (as owner, attendee, or invitee), with ongoing events visible by default and past events in a collapsed section. Each row shows a role badge and a best-action URL (manage > edit-order > invite). Token is single-use and expires after 1 hour. The request page always returns the same "check your inbox" message — no leak of email existence.
+- **Anonymous event creation.** Creator provides title, description, deadline, owner name, owner email, optional preset meal options, free-text toggle, "attendee orders visible" toggle (default on), and a "private event" toggle (default off — public).
+- **Public event browse (`/events`).** Anyone can browse all public events — no auth, no email. Each row shows title, event date in the event's timezone, and order count. Ongoing events are visible by default; past events are in a `<details>` collapsed section. Private events (`IsPrivate == true`) never appear here.
 - **CSV export.** From the manage page, the owner can download all orders as a UTF-8-with-BOM CSV (`event-{slug}-orders-{date}.csv`). Columns: Name, Email, OrderType, OptionLabel, FreeTextOrder, Tags, SubmittedAt_OwnerTZ, SubmittedAt_UTC. Invitees without an order appear as `NoOrderYet` rows. Tokens are excluded. After closing the event, a prompt offers the download immediately.
 - A `ManageToken` is generated and emailed to the owner. The success screen also displays the manage URL once. The token can be re-requested by entering the owner email — same token returned, so links shared with co-admins keep working.
 - **Public event URL** `/e/{slug}`. Attendees enter their name (and optional email), pick a preset meal option or write a free-text order, submit.
@@ -100,6 +100,7 @@ Event
   AllowFreeText             bool           default true
   AttendeeOrdersVisible     bool           default true
   IsClosed                  bool           default false
+  IsPrivate                 bool           default false — when true, excluded from /events browse
   OwnerName                 string
   OwnerEmail                string         lower-cased
   ManageToken               string         random, URL-safe, ~22 chars; carried in /e/{slug}/manage?t={token}
@@ -135,12 +136,6 @@ Invitee  (added 2026-05-04 in Phase 4.5)
   InvitedAt     DateTimeOffset (UTC)
   UNIQUE(EventId, Email)
 
-MyEventsAccessToken  (added 2026-05-12 in Phase 6.5)
-  Token         string         PK, 32-char URL-safe random; used in magic-link ?t= param
-  Email         string         lower-cased via value converter; the address the token was issued for
-  IssuedAt      DateTimeOffset (UTC)
-  ExpiresAt     DateTimeOffset (UTC)  valid for 1 hour
-  ConsumedAt    DateTimeOffset? (UTC) null = unused; set on first valid use (single-use)
 ```
 
 Notes:
@@ -160,7 +155,7 @@ Notes:
 | `/e/{slug}/edit-order` | attendee with edit token (cookie or `?t=` from email) | Edit or withdraw your own order. |
 | `/e/{slug}/manage` | manage-token holder (`?t=` in URL) | Owner manage page. Token validated on every request. |
 | `/recover` | anyone | Top-level form to request manage link(s) emailed to the owner. Looks up by owner email; one email per matching event. Discoverable from the landing page. Rate-limited per IP and per email (Phase 8). |
-| `/my-events` | anyone | Email-entry form; on submit sends a magic-link email. `?t={token}` renders the events list. Ongoing events visible; past events in a `<details>` collapsed block. |
+| `/events` | anyone | Public browse page. Lists all non-private events: title, date in event TZ, order count. Ongoing first; past in collapsed `<details>`. No auth. |
 | `/e/{slug}/manage/orders.csv` | manage-token holder (`?t=` in URL) | Streams a UTF-8+BOM CSV of all orders for the event. Read-only GET endpoint (exempt from interactive-Blazor rule). |
 | `/e/{slug}/manage/recover` | (legacy) | Redirect stub to `/recover` since 2026-05-06. Kept for inbound bookmarks; safe to delete once those are confirmed dead. |
 
@@ -193,6 +188,11 @@ The app uses no authentication system. Identity is carried by tokens in URLs and
   - emailed to the attendee if they provided an email, in the form of an edit URL.
 - No account. The attendee is whoever holds the edit token.
 - Lost cookie + no email → submit a fresh order. Owner can clean up duplicates.
+
+### Event visibility
+- **Events are public by default.** Anyone can browse `/events` and see all non-private events.
+- **Private events** (`IsPrivate == true`) are opt-in. They never appear in `/events` and are reachable only by direct link `/e/{slug}`. The owner controls this at creation and in the edit form.
+- `AttendeeOrdersVisible` is a separate, independent toggle — it controls whether attendees can see *each other's orders* on the event page, not whether the event appears in the browse list.
 
 ### Why no auth
 - Use case is short-lived coordination — a meal order, an event two weeks out. No long-term account relationship.

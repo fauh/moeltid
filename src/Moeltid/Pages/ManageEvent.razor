@@ -85,9 +85,14 @@ else
                 <InputCheckbox class="form-check-input" id="allowFreeText" @bind-Value="editModel.AllowFreeText" />
                 <label class="form-check-label" for="allowFreeText">Allow free-text orders</label>
             </div>
-            <div class="form-check mb-3">
+            <div class="form-check mb-2">
                 <InputCheckbox class="form-check-input" id="ordersVisible" @bind-Value="editModel.AttendeeOrdersVisible" />
                 <label class="form-check-label" for="ordersVisible">Attendee orders visible to all</label>
+            </div>
+            <div class="form-check mb-3">
+                <InputCheckbox class="form-check-input" id="isPrivate" @bind-Value="editModel.IsPrivate" />
+                <label class="form-check-label" for="isPrivate">Private event (link-only)</label>
+                <div class="form-text">When ticked, this event won't appear in the public browse list.</div>
             </div>
             <button type="submit" class="btn btn-primary" disabled="@savingDetails">
                 @(savingDetails ? "Saving…" : "Save changes")
@@ -571,6 +576,7 @@ else
         editModel.TimeZoneId = ev.TimeZoneId;
         editModel.AllowFreeText = ev.AllowFreeText;
         editModel.AttendeeOrdersVisible = ev.AttendeeOrdersVisible;
+        editModel.IsPrivate = ev.IsPrivate;
     }
 
     private async Task SaveDetailsAsync()
@@ -591,7 +597,8 @@ else
                 editModel.Title!, editModel.Description,
                 editModel.StartsAt, editModel.Deadline,
                 editModel.TimeZoneId ?? "UTC",
-                editModel.AllowFreeText, editModel.AttendeeOrdersVisible));
+                editModel.AllowFreeText, editModel.AttendeeOrdersVisible,
+                editModel.IsPrivate));
             detailsSaved = true;
         }
         catch (Exception ex)
@@ -784,5 +791,6 @@ else
         public string? TimeZoneId { get; set; }
         public bool AllowFreeText { get; set; }
         public bool AttendeeOrdersVisible { get; set; }
+        public bool IsPrivate { get; set; }
     }
 }

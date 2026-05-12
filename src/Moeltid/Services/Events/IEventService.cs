@@ -11,7 +11,13 @@ public interface IEventService
     Task<Event> CloseAsync(Guid id);
     Task<string> RotateManageTokenAsync(Guid id);
     Task<IReadOnlyList<Event>> GetByOwnerEmailAsync(string email);
+
+    /// <summary>Returns all public events (IsPrivate == false) with ordered-count and IsOngoing flag.</summary>
+    Task<IReadOnlyList<EventListRow>> ListPublicAsync();
 }
+
+/// <summary>Projection row used by the public /events browse page.</summary>
+public record EventListRow(Event Event, int OrderedCount, bool IsOngoing);
 
 public record UpdateEventRequest(
     string Title,
@@ -20,7 +26,8 @@ public record UpdateEventRequest(
     DateTime Deadline,
     string TimeZoneId,
     bool AllowFreeText,
-    bool AttendeeOrdersVisible
+    bool AttendeeOrdersVisible,
+    bool IsPrivate = false
 );
 
 /// <summary>Defines a meal option to create alongside the event.</summary>
@@ -37,5 +44,6 @@ public record CreateEventRequest(
     bool AllowFreeText,
     bool AttendeeOrdersVisible,
     IReadOnlyList<MealOptionDraft>? MealOptions = null,
-    IReadOnlyList<string>? InviteeEmails = null
+    IReadOnlyList<string>? InviteeEmails = null,
+    bool IsPrivate = false
 );

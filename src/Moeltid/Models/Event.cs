@@ -31,6 +31,12 @@ public class Event
 
     public bool IsClosed { get; set; }
 
+    /// <summary>
+    /// When true, this event is excluded from the public /events browse page.
+    /// Default false — events are public by default; privacy is opt-in.
+    /// </summary>
+    public bool IsPrivate { get; set; }
+
     [MaxLength(200)]
     public required string OwnerName { get; set; }
 

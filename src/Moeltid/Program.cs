@@ -10,7 +10,6 @@ using Moeltid.Services.Email;
 using Moeltid.Services.Events;
 using Moeltid.Services.Invitees;
 using Moeltid.Services.MealOptions;
-using Moeltid.Services.MyEvents;
 using Moeltid.Services.Reminders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -62,8 +61,6 @@ builder.Services.AddScoped<IMealOptionService, MealOptionService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IInviteeService, InviteeService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
-builder.Services.AddScoped<IMyEventsService, MyEventsService>();
-
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())

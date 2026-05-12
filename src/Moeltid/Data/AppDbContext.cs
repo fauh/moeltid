@@ -10,7 +10,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<Invitee> Invitees => Set<Invitee>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
-    public DbSet<MyEventsAccessToken> MyEventsAccessTokens => Set<MyEventsAccessToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,12 +74,5 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<MyEventsAccessToken>(t =>
-        {
-            t.HasKey(x => x.Token);
-            t.HasIndex(x => x.ExpiresAt); // for future janitor cleanup job
-            t.Property(x => x.Email)
-                .HasConversion(v => v.ToLowerInvariant(), v => v);
-        });
     }
 }

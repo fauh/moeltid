@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Moeltid.Data;
 
@@ -10,9 +11,11 @@ using Moeltid.Data;
 namespace Moeltid.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260512114709_DropMyEventsAccessToken")]
+    partial class DropMyEventsAccessToken
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
@@ -84,9 +87,6 @@ namespace Moeltid.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsClosed")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsPrivate")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ManageToken")
