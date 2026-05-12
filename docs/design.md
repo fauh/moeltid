@@ -159,7 +159,7 @@ Notes:
 | `/e/{slug}` | anyone with the link | Public event page: attendee signup, meal ordering. Shows others' orders if `AttendeeOrdersVisible`. Optional `?invite={inviteeId}` query param pre-fills the email field read-only when arriving via an emailed invite link. |
 | `/e/{slug}/edit-order` | attendee with edit token (cookie or `?t=` from email) | Edit or withdraw your own order. |
 | `/e/{slug}/manage` | manage-token holder (`?t=` in URL) | Owner manage page. Token validated on every request. |
-| `/recover` | anyone | Top-level form to request manage link(s) emailed to the owner. Looks up by owner email; one email per matching event. Discoverable from the landing page. Rate-limited per IP and per email (Phase 8). |
+| `/recover` | anyone | Top-level form to request manage link(s) emailed to the owner. Looks up by owner email; sends a single email containing all matching manage links. Discoverable from the landing page. Rate-limited per IP and per email (Phase 8). |
 | `/my-events` | anyone | Email-entry form; on submit sends a magic-link email. `?t={token}` renders the events list. Ongoing events visible; past events in a `<details>` collapsed block. |
 | `/e/{slug}/manage/orders.csv` | manage-token holder (`?t=` in URL) | Streams a UTF-8+BOM CSV of all orders for the event. Read-only GET endpoint (exempt from interactive-Blazor rule). |
 | `/e/{slug}/manage/recover` | (legacy) | Redirect stub to `/recover` since 2026-05-06. Kept for inbound bookmarks; safe to delete once those are confirmed dead. |
