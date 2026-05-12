@@ -43,9 +43,9 @@ public class MyEventsService(
         db.MyEventsAccessTokens.Add(token);
         await db.SaveChangesAsync();
 
-        // Fire-and-forget: do not await; closes the timing side-channel that would
-        // otherwise reveal whether the email matched any events.
-        _ = SendMagicLinkEmailAsync(normalised, token.Token);
+        // Await the email send so any scoped dependencies it uses stay within the
+        // current request scope and do not overlap with later work on this service.
+        await SendMagicLinkEmailAsync(normalised, token.Token);
     }
 
     public async Task<string?> ValidateAndConsumeAsync(string token)
