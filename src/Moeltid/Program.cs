@@ -1,7 +1,6 @@
 using Hangfire;
 using Hangfire.Storage.SQLite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Moeltid.Data;
 using Moeltid.Endpoints;
 using Moeltid.Services;
@@ -14,15 +13,37 @@ using Moeltid.Services.Reminders;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Connection string — DATA_DIR env var for container deployments ────────────
+// Development default: DATA_DIR not set → "Data Source=moeltid.db" (relative to CWD).
+// Production: set DATA_DIR=/data to use the Render persistent disk.
+// The env var is a short-hand; the full connection string can also be overridden
+// directly via ConnectionStrings__DefaultConnection if preferred.
+var dataDir = Environment.GetEnvironmentVariable("DATA_DIR");
+if (!string.IsNullOrWhiteSpace(dataDir))
+{
+    builder.Configuration["ConnectionStrings:DefaultConnection"] =
+        $"Data Source={Path.Combine(dataDir, "moeltid.db")}";
+}
+
+// ── Reminders / Hangfire — conditionally disabled in prod ────────────────────
+builder.Services.Configure<RemindersSettings>(
+    builder.Configuration.GetSection(RemindersSettings.SectionName));
+
+var remindersSettings = builder.Configuration
+    .GetSection(RemindersSettings.SectionName)
+    .Get<RemindersSettings>() ?? new RemindersSettings();
+
+// ── Core services ────────────────────────────────────────────────────────────
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddAntiforgery();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// EmailSettings — bind from config; fail-fast if UseRealProvider but ApiKey empty
+// ── Email ────────────────────────────────────────────────────────────────────
 builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection(EmailSettings.SectionName));
 
@@ -45,22 +66,33 @@ else
     builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 }
 
-// Hangfire — SQLite storage (same DB as app)
-var hangfireConnStr = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=moeltid.db";
-builder.Services.AddHangfire(config =>
-    config.UseSimpleAssemblyNameTypeSerializer()
-          .UseRecommendedSerializerSettings()
-          .UseSQLiteStorage(hangfireConnStr));
-builder.Services.AddHangfireServer();
+// ── Hangfire (only when reminders are enabled) ───────────────────────────────
+if (remindersSettings.Enabled)
+{
+    var hangfireConnStr = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Data Source=moeltid.db";
+    builder.Services.AddHangfire(config =>
+        config.UseSimpleAssemblyNameTypeSerializer()
+              .UseRecommendedSerializerSettings()
+              .UseSQLiteStorage(hangfireConnStr));
+    builder.Services.AddHangfireServer();
+    builder.Services.AddScoped<IReminderService, ReminderService>();
+}
+else
+{
+    // NullReminderService: all calls no-op (CancelAsync) or throw (ScheduleAsync,
+    // which should never be called when the reminder UI is hidden).
+    builder.Services.AddScoped<IReminderService, NullReminderService>();
+}
 
+// ── App services ─────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<TokenGenerator>();
 builder.Services.AddSingleton<SlugGenerator>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IMealOptionService, MealOptionService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IInviteeService, InviteeService>();
-builder.Services.AddScoped<IReminderService, ReminderService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -79,12 +111,13 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
 
-// Hangfire dashboard — Development only
-if (app.Environment.IsDevelopment())
+// Hangfire dashboard — Development only, and only when Hangfire is registered
+if (app.Environment.IsDevelopment() && remindersSettings.Enabled)
 {
     app.UseHangfireDashboard();
 }
 
+app.MapHealthChecks("/health");
 app.MapAttendanceEndpoints();
 app.MapExportEndpoints();
 app.MapBlazorHub();

@@ -6,6 +6,58 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-12 — Phase 7 plan signed off
+
+`docs/phases/phase-7-plan.md` locked. 22 tasks across containerize, disable-Hangfire-cleanly, host config, CI/CD, first deploy, and docs.
+
+**Key decisions** (confirmed via AskUserQuestion exchange before plan was drafted):
+
+- **Host: Render Free tier.** Cold-start trade-off accepted for v1 internal use. Cost stays at $0 until we explicitly upgrade.
+- **Hangfire actively disabled in production**, not just cold-start-tolerated. A `Reminders:Enabled` config flag (default `true` in dev, `false` in `appsettings.Production.json`) gates Hangfire DI, the dashboard, and `IReminderService` (swapped to a `NullReminderService` no-op). The reminder UI section in `ManageEvent.razor` is hidden when disabled. Phase 9 re-enables when we upgrade hosting. The Phase 4.5 "send reminder to non-ordered invitees" one-shot is left intact — it doesn't go through Hangfire.
+- **GitHub Actions auto-deploys on push to `main`**: CI runs build + test on every push; deploy job is gated to `main` and calls a Render Deploy Hook from GH Actions secrets.
+- **Custom domain deferred to Phase 9.** Phase 7 uses Render's free `*.onrender.com` subdomain.
+- **Resend stays in test mode** (`onboarding@resend.dev` sender) until Phase 9 domain verification.
+
+**Working assumptions** to revisit if anything turns up at execution:
+
+- 1 GB persistent disk for `/data` (Render free-tier max).
+- `Reminder` schema kept dormant in production rather than dropped — keeps Phase 9 re-enable a one-flag flip.
+- `EmailSettings:BaseUrl` set as a Render env var after provisioning, not committed.
+
+Executor handoff: Claude Code, per default convention in `process.md` §"Executors". Phase 7 task #12 remains in_progress in the tracker.
+
+---
+
+## 2026-05-12 — Phase 6.6 follow-up 6.6.18 closed as moot
+
+Attempted to roll in 6.6.18 (replace `FormatDate` with `TimeZoneHelper.ToLocalString` in `Events.razor`) and discovered the named anti-pattern doesn't exist. Repo-wide grep for `FormatDate` returns zero matches outside the phase plan file. `Events.razor` already uses `@using static Moeltid.Services.TimeZoneHelper` and calls `ToLocalString(...)` directly at line 35, matching the project-wide convention.
+
+The phase-6.6 retro's 🟡 finding was a **phantom** — the Cowork-side reviewer (Claude Code Sonnet 4.6) described a pattern problem the file didn't actually have. No code change made. Task 6.6.18 marked ⊘ (moot) rather than ✅ to keep the record accurate.
+
+**Observation**: a phantom finding wastes follow-up budget and erodes trust in the review pass. The implicit discipline going forward: every Cowork-side finding should quote the offending `file:line + snippet` — if a finding can't quote concrete code, it isn't grounded enough to act on. Not promoting to a formal rule in `process.md` yet (one failure, low cost), but logging the pattern.
+
+---
+
+## 2026-05-12 — Process update: navigation-reachability review-scope rule
+
+Added a new rule to `docs/process.md` § "Phase exit — the two-tool review pattern": the Cowork phase-exit review must re-read every page reachable through any new or modified navigation flow introduced during the phase, not only files named in the plan's task list. Adopted in response to the Phase 6.6 `EventPage.razor` regression — the order-form guard was silently hardened during execution but Cowork's review scoped only to files on the task list and missed it.
+
+The principle: scope review by the navigation graph the phase touches. If a phase changes how users get *to* a page, the page itself is in scope, even when the task list doesn't name it.
+
+---
+
+## 2026-05-12 — Phase 6.6 post-completion bugfix
+
+**Regression caught during user manual testing**: orders couldn't be submitted on any event page. Root cause was an unplanned over-defensive guard `@if (HttpContextAccessor.HttpContext is { } httpCtx && !httpCtx.Response.HasStarted)` wrapping the order form in `EventPage.razor`. The `!HasStarted` clause was not part of Phase 6.6's planned scope, not documented in the plan, retro, or change log, and was inconsistent with the sibling page `EditOrder.razor` (which uses the simpler `is not null` check). The check hid the form whenever the response body had begun streaming during initial prerender — the normal case for an initial HTTP request — making submission impossible.
+
+**Fix**: Removed the `!HasStarted` clause; the `@if` now matches the `EditOrder.razor` pattern. The soft-navigation antiforgery problem the guard was presumably trying to defend against is already solved by `forceLoad: true` on every internal nav into `/e/{slug}` (`Events.razor`, `EventPage.razor`, `EditOrder.razor` all use this pattern).
+
+**Process gap surfaced**: The Phase 6.6 Cowork phase-exit review scoped to files explicitly named in the plan and missed `EventPage.razor`, even though Phase 6.6 added a new entry point (`/events`) that navigates into it. Going forward, Cowork phase-exit review must re-read every page reachable through any new or modified navigation flow. Will be encoded in `process.md` via follow-up 6.6.20.
+
+Full retrospective: `docs/phases/phase-6.6-plan.md` → "Post-completion regression" section.
+
+---
+
 ## 2026-05-12 — Phase 6.6 complete
 
 **Public event browse (`/events`)** delivered. Phase 6.5 magic-link infrastructure removed; replaced with a simple public browse page and a per-event `IsPrivate` opt-out.

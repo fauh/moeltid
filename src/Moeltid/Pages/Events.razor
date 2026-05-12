@@ -1,5 +1,6 @@
 @page "/events"
 @using Moeltid.Services.Events
+@using static Moeltid.Services.TimeZoneHelper
 @inject IEventService EventService
 
 <PageTitle>Events — Consid Måltid</PageTitle>
@@ -31,7 +32,7 @@ else
                 {
                     <tr style="cursor:pointer" @onclick="() => GoToEvent(row.Event.Slug)">
                         <td>@row.Event.Title</td>
-                        <td class="text-muted"><small>@FormatDate(row.Event)</small></td>
+                        <td class="text-muted"><small>@ToLocalString(row.Event.StartsAt, row.Event.TimeZoneId, "yyyy-MM-dd HH:mm") (@row.Event.TimeZoneId)</small></td>
                         <td><span class="badge text-bg-secondary">@row.OrderedCount</span></td>
                     </tr>
                 }
@@ -62,7 +63,7 @@ else
                     {
                         <tr style="cursor:pointer" @onclick="() => GoToEvent(row.Event.Slug)">
                             <td>@row.Event.Title</td>
-                            <td class="text-muted"><small>@FormatDate(row.Event)</small></td>
+                            <td class="text-muted"><small>@ToLocalString(row.Event.StartsAt, row.Event.TimeZoneId, "yyyy-MM-dd HH:mm") (@row.Event.TimeZoneId)</small></td>
                             <td><span class="badge text-bg-secondary">@row.OrderedCount</span></td>
                         </tr>
                     }
@@ -85,19 +86,9 @@ else
         _loading = false;
     }
 
-    private void GoToEvent(string slug) => Nav.NavigateTo($"/e/{slug}");
-
-    private static string FormatDate(Moeltid.Models.Event ev)
-    {
-        try
-        {
-            var tz = TimeZoneInfo.FindSystemTimeZoneById(ev.TimeZoneId);
-            var local = TimeZoneInfo.ConvertTime(ev.StartsAt, tz);
-            return $"{local:yyyy-MM-dd HH:mm} ({ev.TimeZoneId})";
-        }
-        catch
-        {
-            return ev.StartsAt.ToString("yyyy-MM-dd HH:mm") + " UTC";
-        }
-    }
+    // forceLoad required: EventPage calls Antiforgery.GetAndStoreTokens() during render,
+    // which writes a Set-Cookie header. Soft Blazor navigation reuses the existing SignalR
+    // circuit's already-sent HTTP response, so the cookie write throws "Headers are read-only".
+    // Same pattern as GoToEditOrder in EventPage.razor.
+    private void GoToEvent(string slug) => Nav.NavigateTo($"/e/{slug}", forceLoad: true);
 }

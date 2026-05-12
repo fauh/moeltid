@@ -1,0 +1,22 @@
+**/.git
+**/.vs
+**/.vscode
+**/.idea
+**/bin
+**/obj
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/node_modules
+
+# Test project — not needed in the runtime image
+tests/
+
+# Docs and tooling
+docs/
+.claude/
+*.md
+.editorconfig
+Directory.Build.props
+.gitattributes
+.gitignore
