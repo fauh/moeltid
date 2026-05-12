@@ -18,17 +18,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore dependencies
-        run: dotnet restore src/Moeltid/Moeltid.csproj
-
-      - name: Restore test dependencies
-        run: dotnet restore tests/Moeltid.Tests/Moeltid.Tests.csproj
-
       - name: Build (Release)
-        run: dotnet build src/Moeltid/Moeltid.csproj -c Release --no-restore
+        # Builds Moeltid.Tests, which transitively builds the main app via project reference.
+        run: dotnet build tests/Moeltid.Tests/Moeltid.Tests.csproj -c Release
 
       - name: Test (Release)
-        run: dotnet test tests/Moeltid.Tests/Moeltid.Tests.csproj -c Release --no-build --verbosity normal
+        # No --no-build: avoids the known .NET 10 + xunit.runner.visualstudio 3.x
+        # compatibility issue where vstest gets handed the .dll argument it rejects.
+        run: dotnet test tests/Moeltid.Tests/Moeltid.Tests.csproj -c Release
 
   deploy:
     name: Deploy to Fly.io
