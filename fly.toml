@@ -23,5 +23,5 @@ primary_region = 'arn'
   memory_mb = 256
 
 [mounts]
-  source = "moeltid-data"
+  source = "moeltid_data"
   destination = "/data"
