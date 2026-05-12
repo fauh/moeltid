@@ -8,6 +8,14 @@ primary_region = 'arn'
 
 [build]
 
+[env]
+  # Tells Program.cs to point SQLite at the mounted persistent volume.
+  # Without this, the connection string falls back to a relative path
+  # in /app (owned by root) which appuser can't write to — events
+  # won't save. The mount destination must match the [mounts] block below.
+  DATA_DIR = "/data"
+  ASPNETCORE_ENVIRONMENT = "Production"
+
 [http_service]
   internal_port = 8080
   force_https = true

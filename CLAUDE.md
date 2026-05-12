@@ -21,23 +21,26 @@ If `design.md` and `change_log.md` ever disagree, `design.md` wins and the chang
 
 ## Current status
 
-- Phase 0 (planning) — **complete**. See `docs/phases/phase-0-plan.md` for the retrospective.
-- Phase 1 (local-only scaffold) — **in progress**. See `docs/phases/phase-1-plan.md`.
+- Phases 0 – 7 complete. App is deployed and live.
+- Phase 8 (polish) — pending. Next up.
+- Phase 9 (production launch — custom domain, verified email sender, backups, retention) — pending.
 
-## Notes specifically for Claude Code
+## Production environment
 
-The Cowork session that did Phase 0 ran in a Linux sandbox that couldn't reliably do filesystem-structured operations (git, dotnet) against the Windows-mounted workspace. So:
+- **URL**: https://moeltid.fly.dev
+- **Host**: Fly.io (`fly.toml` at repo root). Region `arn` (Stockholm). Auto-stops when idle, auto-starts on traffic — first request after sleep takes ~5-10s.
+- **Storage**: persistent Fly volume `moeltid_data` mounted at `/data`. SQLite + (when re-enabled) Hangfire data live here.
+- **Deploy**: GitHub Actions on push to `main` → `flyctl deploy --remote-only` using `FLY_API_TOKEN` secret. Manual override: `flyctl deploy` from a machine with `flyctl` installed and `flyctl auth login` done.
+- **Logs**: `flyctl logs -a moeltid` for streaming, `flyctl logs -a moeltid --no-tail` for a one-shot dump.
+- **SSH into the machine**: `flyctl ssh console -a moeltid` (gets a shell on the running container).
+- **Secrets**: `flyctl secrets list -a moeltid` to see what's set; `flyctl secrets set KEY=value -a moeltid` to update. `EmailSettings__ApiKey` and `EmailSettings__BaseUrl` live here.
+- **Hangfire / scheduled reminders are disabled in production** (auto-stop = sleeping machine = unreliable scheduled jobs). Re-evaluated in Phase 9 if we move to always-on hosting.
 
-- A **broken `.git/` folder** is sitting in the workspace root from a failed `git init`. **Delete it before initing fresh**:
-  ```powershell
-  Remove-Item -Recurse -Force .git
-  ```
-- Three pre-init config files are already on disk and good to commit: `.gitattributes`, `.editorconfig`, `Directory.Build.props` — plus the existing `.gitignore`, `README.md`, `change_log.md`, and the `docs/` tree.
-- Phase 1 tasks 1.1, 1.3–1.4, 1.6–1.9 from `phase-1-plan.md` were the ones that needed Windows shell access. With Claude Code's native shell, you can do them in sequence without any handoff.
+See `docs/design.md` §7 for the full deployment notes.
 
-## After completing Phase 1
+## After completing a phase
 
-Fill in the "What actually happened" section at the bottom of `phase-1-plan.md` — actual models used per task, escalations and why, surprises, lessons. Add a dated entry in `change_log.md` summarising the phase. Mark task #2 complete in whatever task tracker the parent runtime uses (Cowork has one; Code may have its own).
+Fill in the "What actually happened" section at the bottom of the phase's `docs/phases/phase-N-plan.md` — executor, actual models used per task, escalations and why, surprises, lessons. Add a dated entry in `change_log.md` summarising the phase. Cowork performs the Phase Exit review pass per `docs/process.md` § "Phase exit" before the phase is truly closed.
 
 ## Working rhythm (summary, full version in `process.md`)
 

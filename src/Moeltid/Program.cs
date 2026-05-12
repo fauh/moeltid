@@ -15,7 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ── Connection string — DATA_DIR env var for container deployments ────────────
 // Development default: DATA_DIR not set → "Data Source=moeltid.db" (relative to CWD).
-// Production: set DATA_DIR=/data to use the Render persistent disk.
+// Production (Fly.io): DATA_DIR=/data is set in fly.toml's [env] block so SQLite
+// writes to the mounted persistent volume. Without it, SQLite tries to write to
+// /app (root-owned) and the non-root container user gets permission denied.
 // The env var is a short-hand; the full connection string can also be overridden
 // directly via ConnectionStrings__DefaultConnection if preferred.
 var dataDir = Environment.GetEnvironmentVariable("DATA_DIR");

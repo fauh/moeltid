@@ -25,7 +25,7 @@ RUN adduser -u 5678 -D -H appuser
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# /data is the mount point for the Render persistent disk.
+# /data is the mount point for the Fly.io persistent volume.
 # Ownership is fixed at startup (not here) because the mounted volume overwrites
 # this directory's metadata — see entrypoint.sh.
 RUN mkdir -p /data

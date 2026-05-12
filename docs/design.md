@@ -159,17 +159,19 @@ Notes:
 | `/e/{slug}/manage/orders.csv` | manage-token holder (`?t=` in URL) | Streams a UTF-8+BOM CSV of all orders for the event. Read-only GET endpoint (exempt from interactive-Blazor rule). |
 | `/e/{slug}/manage/recover` | (legacy) | Redirect stub to `/recover` since 2026-05-06. Kept for inbound bookmarks; safe to delete once those are confirmed dead. |
 
-## 7. Deployment plan
+## 7. Deployment
 
-Deployment is deferred to **Phase 7** — early iteration runs locally only via `dotnet run`. Rationale: rapid feature iteration is more important than infrastructure during the prototype phases, and any host/CI choices made now would likely be reworked once we know the real shape of the app. The plan below is the *target* for Phase 7, not Phase 1.
+Deployed at **https://moeltid.fly.dev** as of Phase 7 close (2026-05-12).
 
-- **Build**: `Dockerfile` in repo root, multi-stage build (SDK 10 → ASP.NET runtime 10 on Alpine).
+- **Build**: multi-stage `Dockerfile` at repo root — SDK 10 build → `aspnet:10.0-alpine` runtime, non-root user (`appuser`, uid 5678), `su-exec` for clean privilege drop, `wget` for the in-container healthcheck. `entrypoint.sh` chowns the mounted volume on startup so the non-root user can write the SQLite file.
 - **Runtime image**: `mcr.microsoft.com/dotnet/aspnet:10.0-alpine`.
-- **Host**: Render or Fly.io free tier — picked at Phase 7. Persistent volume for the SQLite file and Hangfire data.
-- **Email**: **Resend** (locked Phase 5). Domain verification needed before production launch. Dev and staging use Resend's sandbox / verified-address mode. `EmailSettings:UseRealProvider` feature flag controls the DI swap. `EmailSettings:BaseUrl` must be set to the deployment URL in production so email links point to the right host.
-- **CI/CD**: GitHub Actions on push to `main` — build, test, push image, trigger deploy. Set up at Phase 7.
-- **Domain**: TBD. Use the host's free subdomain initially.
-- **Backups**: nightly cron in the container that copies the SQLite file to a remote bucket. Decision deferred to Phase 9.
+- **Host**: **Fly.io** (`fly.toml` at repo root). Region `arn` (Stockholm). Auto-stop machines with `min_machines_running = 0` for $0 cost within the free credit — the machine sleeps when idle and auto-starts on incoming traffic. Trade-off: first request after idle takes ~5-10s; scheduled background jobs (Hangfire) cannot run reliably because the machine isn't always on. This is why **Hangfire is disabled in production** (see Reminders below).
+- **Storage**: persistent Fly volume `moeltid_data` mounted at `/data` (1 GB). SQLite file at `/data/moeltid.db`. The `DATA_DIR` env var in `fly.toml` `[env]` redirects `Program.cs`'s connection-string builder to this path; without it, SQLite falls back to a relative path in the root-owned `/app` directory and writes fail.
+- **Reminders / Hangfire**: **disabled in production** via the `Reminders:Enabled` config flag in `appsettings.Production.json`. `Program.cs` conditionally registers either Hangfire + `ReminderService` (dev) or a `NullReminderService` (prod). The reminder UI section in `ManageEvent.razor` is hidden when the flag is off. Will be re-evaluated in Phase 9 if we move to an always-on tier.
+- **Email**: **Resend** (locked Phase 5). Test-mode sender `onboarding@resend.dev` until domain verification in Phase 9. `EmailSettings:ApiKey` and `EmailSettings:BaseUrl` are set as Fly secrets (`flyctl secrets set ...`), never committed. `EmailSettings:UseRealProvider=true` in production flips the DI swap.
+- **CI/CD**: GitHub Actions. `.github/workflows/ci.yml` runs build + test on every push and PR. `.github/workflows/deploy.yml` runs on push to `main`, gated behind CI passing, and invokes `flyctl deploy --remote-only` with a `FLY_API_TOKEN` GH Actions secret (created via `flyctl tokens create deploy`).
+- **Domain**: Phase 7 ships on `moeltid.fly.dev`. Custom domain deferred to Phase 9.
+- **Backups**: nightly snapshot of the SQLite file to a remote bucket. Deferred to Phase 9.
 
 ## 8. Identity model (no accounts)
 

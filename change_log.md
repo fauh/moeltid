@@ -6,6 +6,32 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-12 — Phase 7 closed: app deployed
+
+**Live at https://moeltid.fly.dev.** Full ordering flow works end-to-end on the deployed instance after a post-deploy `DATA_DIR` fix (see below).
+
+**Host pivoted from Render Free to Fly.io during execution.** Reason: Render's free tier no longer offers persistent disks, which would have made SQLite storage ephemeral. Fly.io's free credit covers an auto-stopping shared-CPU machine + 1 GB volume at $0 actual cost. Auto-stop preserves the original Hangfire-disabled decision: a sleeping machine wakes only on traffic, so scheduled jobs remain unreliable — same constraint as Render Free's spin-down, just from a different mechanism. The original v1 plan's host bullet is now stale; the truth lives in the plan's retrospective and `design.md` §7.
+
+**Shipped configuration**:
+
+- `Dockerfile` — multi-stage SDK 10 → `aspnet:10.0-alpine`, non-root `appuser` via `su-exec`, in-container healthcheck via `wget`.
+- `entrypoint.sh` — `chown -R appuser /data` at startup so the non-root user can write to the volume (the mount overwrites image-layer ownership).
+- `fly.toml` — region `arn`, auto-stop machines with `min_machines_running = 0`, 1 GB volume `moeltid_data` mounted at `/data`, healthcheck on `/health`, `[env]` block sets `DATA_DIR=/data` and `ASPNETCORE_ENVIRONMENT=Production`.
+- `Program.cs` — `DATA_DIR`-based connection-string override (`$"Data Source={DATA_DIR}/moeltid.db"`), conditional Hangfire/`NullReminderService` DI registration based on `Reminders:Enabled`, `MapHealthChecks("/health")`.
+- `appsettings.Production.json` — `Reminders.Enabled = false`.
+- `Services/Reminders/RemindersSettings.cs`, `NullReminderService.cs`, `Pages/ManageEvent.razor` (UI gating), and `tests/Moeltid.Tests/Services/NullReminderServiceTests.cs` — the Hangfire-disable mechanism.
+- `.github/workflows/ci.yml` — build + test on every push and PR.
+- `.github/workflows/deploy.yml` — on push to `main`, gated behind CI, runs `flyctl deploy --remote-only` with `FLY_API_TOKEN` secret. (Originally targeted a Render Deploy Hook; rewritten during cleanup.)
+- `render.yaml` was authored per the plan, then deleted after the Fly pivot.
+
+**Bug caught during the Cowork phase-exit review pass**: events couldn't save on the deployed instance. Root cause: `fly.toml` had no `[env]` block, so `DATA_DIR` was unset, the connection string fell back to `appsettings.json`'s relative `Data Source=moeltid.db`, and SQLite tried to write to `/app/moeltid.db` — a root-owned directory the non-root `appuser` couldn't write to. Fixed by adding the `[env]` block to `fly.toml`. Process implication: every host-config swap should re-verify that all env vars referenced in `Program.cs` are set on the new host. Noted in the phase retro under "Surprises".
+
+**Documentation cleanup** in the same pass: `design.md` §7 rewritten for Fly.io; `CLAUDE.md` updated with a production environment quick-reference (URL, logs, redeploy, ssh, secrets); stale "Render persistent disk" comments fixed in `Dockerfile`, `entrypoint.sh`, and `Program.cs`. The phase-7 plan's "What actually happened" section is filled in with the full retro, per-task verification table, and Cowork Phase Exit review findings.
+
+**Open trade-off carried into Phase 9**: auto-stop / `min_machines_running = 0` keeps us at $0 cost but makes scheduled-job re-enablement non-trivial. Phase 9 should evaluate moving to an always-on tier (Fly's `min_machines_running = 1` adds ~$2/month within the existing credit envelope) versus continuing without Hangfire-driven reminders.
+
+---
+
 ## 2026-05-12 — Phase 7 plan signed off
 
 `docs/phases/phase-7-plan.md` locked. 22 tasks across containerize, disable-Hangfire-cleanly, host config, CI/CD, first deploy, and docs.
