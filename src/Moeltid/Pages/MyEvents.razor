@@ -154,17 +154,30 @@ else
 
     private static RenderFragment RoleBadges(EventRole roles) => __builder =>
     {
+        var sequence = 0;
+
         if (roles.HasFlag(EventRole.Owner))
         {
-            <span class="badge text-bg-primary me-1">owner</span>
+            __builder.OpenElement(sequence++, "span");
+            __builder.AddAttribute(sequence++, "class", "badge text-bg-primary me-1");
+            __builder.AddContent(sequence++, "owner");
+            __builder.CloseElement();
         }
+
         if (roles.HasFlag(EventRole.Attendee))
         {
-            <span class="badge text-bg-success me-1">attendee</span>
+            __builder.OpenElement(sequence++, "span");
+            __builder.AddAttribute(sequence++, "class", "badge text-bg-success me-1");
+            __builder.AddContent(sequence++, "attendee");
+            __builder.CloseElement();
         }
+
         if (roles.HasFlag(EventRole.Invitee))
         {
-            <span class="badge text-bg-secondary me-1">invitee</span>
+            __builder.OpenElement(sequence++, "span");
+            __builder.AddAttribute(sequence++, "class", "badge text-bg-secondary me-1");
+            __builder.AddContent(sequence++, "invitee");
+            __builder.CloseElement();
         }
     };
 
