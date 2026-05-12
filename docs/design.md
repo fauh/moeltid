@@ -27,6 +27,7 @@ One cohesive scope. No prototype/hardening split. The app is publicly usable fro
 
 In:
 - **Anonymous event creation.** Creator provides title, description, deadline, owner name, owner email, optional preset meal options, free-text toggle, and an "attendee orders visible" toggle (default on).
+- **Events discovery (`/my-events`).** Any user can enter their email to receive a one-time magic link. Clicking the link opens a list of every event tied to that email (as owner, attendee, or invitee), with ongoing events visible by default and past events in a collapsed section. Each row shows a role badge and a best-action URL (manage > edit-order > invite). Token is single-use and expires after 1 hour. The request page always returns the same "check your inbox" message — no leak of email existence.
 - **CSV export.** From the manage page, the owner can download all orders as a UTF-8-with-BOM CSV (`event-{slug}-orders-{date}.csv`). Columns: Name, Email, OrderType, OptionLabel, FreeTextOrder, Tags, SubmittedAt_OwnerTZ, SubmittedAt_UTC. Invitees without an order appear as `NoOrderYet` rows. Tokens are excluded. After closing the event, a prompt offers the download immediately.
 - A `ManageToken` is generated and emailed to the owner. The success screen also displays the manage URL once. The token can be re-requested by entering the owner email — same token returned, so links shared with co-admins keep working.
 - **Public event URL** `/e/{slug}`. Attendees enter their name (and optional email), pick a preset meal option or write a free-text order, submit.
@@ -133,6 +134,13 @@ Invitee  (added 2026-05-04 in Phase 4.5)
   Email         string         lower-cased via value converter
   InvitedAt     DateTimeOffset (UTC)
   UNIQUE(EventId, Email)
+
+MyEventsAccessToken  (added 2026-05-12 in Phase 6.5)
+  Token         string         PK, 32-char URL-safe random; used in magic-link ?t= param
+  Email         string         lower-cased via value converter; the address the token was issued for
+  IssuedAt      DateTimeOffset (UTC)
+  ExpiresAt     DateTimeOffset (UTC)  valid for 1 hour
+  ConsumedAt    DateTimeOffset? (UTC) null = unused; set on first valid use (single-use)
 ```
 
 Notes:
@@ -152,6 +160,8 @@ Notes:
 | `/e/{slug}/edit-order` | attendee with edit token (cookie or `?t=` from email) | Edit or withdraw your own order. |
 | `/e/{slug}/manage` | manage-token holder (`?t=` in URL) | Owner manage page. Token validated on every request. |
 | `/recover` | anyone | Top-level form to request manage link(s) emailed to the owner. Looks up by owner email; one email per matching event. Discoverable from the landing page. Rate-limited per IP and per email (Phase 8). |
+| `/my-events` | anyone | Email-entry form; on submit sends a magic-link email. `?t={token}` renders the events list. Ongoing events visible; past events in a `<details>` collapsed block. |
+| `/e/{slug}/manage/orders.csv` | manage-token holder (`?t=` in URL) | Streams a UTF-8+BOM CSV of all orders for the event. Read-only GET endpoint (exempt from interactive-Blazor rule). |
 | `/e/{slug}/manage/recover` | (legacy) | Redirect stub to `/recover` since 2026-05-06. Kept for inbound bookmarks; safe to delete once those are confirmed dead. |
 
 ## 7. Deployment plan

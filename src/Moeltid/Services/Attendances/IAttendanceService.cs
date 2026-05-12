@@ -10,6 +10,9 @@ public interface IAttendanceService
     Task DeleteAsync(Guid id);
     Task DeleteByOwnerAsync(Guid attendanceId);
     Task<IReadOnlyList<Attendance>> ListByEventAsync(Guid eventId);
+
+    /// <summary>Returns all attendances where <see cref="Attendance.Email"/> matches (case-insensitive).</summary>
+    Task<IReadOnlyList<Attendance>> ListByEmailAsync(string email);
 }
 
 public record CreateAttendanceRequest(

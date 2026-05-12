@@ -6,6 +6,79 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-12 — Phase 6.5 complete
+
+**Events discovery (`/my-events`)** delivered. Any user can enter their email, receive a one-time magic link, and see every event they're connected to as owner, attendee, or invitee.
+
+**What landed:**
+- `MyEventsAccessToken` entity + EF migration. PK is a 32-char URL-safe token string. `Email` lower-cased via value converter. Single-use (`ConsumedAt`) + 1-hour expiry (`ExpiresAt`). Indexed on `ExpiresAt` for a future janitor job.
+- `IMyEventsService` / `MyEventsService`: `RequestAccessAsync` validates email, persists token, fires email send via `Task.Run` (fire-and-forget closes the timing side-channel). `ValidateAndConsumeAsync` checks expiry + not-consumed + marks consumed. `GetEventsForEmailAsync` delegates to `EventService`, `AttendanceService`, `InviteeService` and routes through `MyEventsListBuilder`.
+- `MyEventsListBuilder` pure static helper: dedupes by `EventId`, combines role flags, resolves best-action URL (owner > attendee > invitee), sets `IsOngoing` flag, orders ongoing-ascending then past-descending.
+- `ListByEmailAsync` added to `IAttendanceService` + `IInviteeService` (with `Event` included).
+- `MyEvents.razor` page: request form → generic "check your inbox" success; `?t=` present and valid → events table with ongoing visible + past in `<details>` collapsed; token invalid/expired → generic "expired or used" message + request form.
+- Landing page: new "See all your events" link to `/my-events`.
+- Email body lists matching events with title + date + role, plus the magic-link URL.
+- `design.md` §3, §5, §6 updated. `change_log.md` this entry. `phase-6.5-plan.md` retro filled in.
+
+**Stats**: 134 tests passing (116 → 134, +18). Build: 0 errors.
+
+## 2026-05-11 — Phase 6.5 plan signed off + `/recover` one-email fix
+
+Wilhelm answered all five open questions; four matched the working assumptions, one reversed it (past events get a collapsed section rather than being hidden). Plus he flagged a real inbox-clutter bug in the existing `/recover` flow.
+
+**Locked decisions**:
+- **Default view**: ongoing events visible, past events in a collapsed `<details>` section. Reversed from the working "ongoing only" assumption.
+- **Single-use token**. Tighter blast radius.
+- **`/recover` stays separate**. Different use case, different mechanism.
+- **Magic link** (not immediate-render). Consistent with v1 privacy posture.
+- **Fire-and-forget email send** in `RequestAccessAsync`. Closes the timing side-channel that would otherwise let an attacker probe email existence by response-time delta.
+
+**Sign-off-decision review rule applied**: one ripple — the "ongoing only" change to "ongoing + past collapsed" updates tasks 6.5.4 (`MyEventsListBuilder` returns all events with an `IsOngoing` flag, not a filtered slice) and 6.5.7 (page renders ongoing first, past in `<details>`). Exit criteria amended. No other items affected.
+
+**Adjacent bugfix** (Cowork-applied, immediate per the bugfix-immediately discipline; not part of Phase 6.5): `/recover` was sending one email per matching event — N events = N emails. Inbox clutter. Fixed in `Pages/Recover.razor` to send ONE email with all manage links in the body. Subject conditional on count: singular phrasing for N=1, plural with count for N>1. Body uses single-event template for N=1, bullet list for N>1. Same recipient (the owner email — all matched events share it by definition of the query).
+
+Phase 6.5 plan locked. **13 tasks** unchanged. Awaiting executor pickup.
+
+## 2026-05-11 — Phase 6.5 plan written
+
+`docs/phases/phase-6.5-plan.md` drafted: 13 tasks for the events-listing / discovery feature. The central design tension is between Wilhelm's "list page" ask and the v1 no-browseable-events privacy model. Resolution: **magic-link flow** — typing an email never renders sensitive content directly; it sends an email with a short-lived (1-hour) single-use link that opens the list page.
+
+**Locked decisions** (in §Decisions):
+- New entity `MyEventsAccessToken` (Token PK, Email, IssuedAt, ExpiresAt, ConsumedAt?).
+- Single-use token, 1-hour expiry.
+- Three roles aggregated: owner, attendee, invitee.
+- "Ongoing" filter: `!IsClosed AND StartsAt > now`.
+- Per-row best-action URL by role priority (owner > attendee > invitee).
+- `MyEventsListBuilder` pure helper (same pattern as `EventDisplayList` / `ReminderAudience` / `CsvExportBuilder`).
+- New `/my-events` page; landing-page link added; `/recover` stays separate.
+- Same generic "if your email matches, check your inbox" message regardless of match.
+
+**Four open questions** for sign-off:
+1. "Ongoing" filter as default? Lean yes.
+2. Single-use token (lean) vs reusable until expiry?
+3. Should `/recover` redirect to `/my-events` or stay separate? Lean stay separate (different use cases).
+4. Worth the extra magic-link step vs immediate-render? Lean magic-link (consistent with v1 privacy posture).
+
+Plus one §Risk-level item to confirm: how to avoid timing side-channels in `RequestAccessAsync` (fire-and-forget the email send vs always do equivalent work).
+
+Plan awaiting sign-off.
+
+## 2026-05-11 — Phase 6 Cowork review + close
+
+Phase Exit review pass per `process.md` §"Phase exit". Executor used the "_Pending — Cowork to fill in_" placeholder correctly; review now landed.
+
+**🟡 → ✅ FIXED**: `SafeGetTz` was duplicated in three places (`TimeZoneHelper.SafeGetTz` canonical, `ExportEndpoints` wrapper that just delegated, `ManageEvent.razor` private static legacy from Phase 4). Both wrappers removed. The page's `@using static Moeltid.Services.TimeZoneHelper` already imports the helper, so unqualified calls in the page now resolve to the canonical version.
+
+**🟢 positive over-deliveries** worth naming (executor's "no deviations" undersold these):
+- `CsvExportBuilder.SanitizeCsvField` defends against CSV formula injection — escapes values starting with `=`, `+`, `-`, `@`, `\t` with a leading apostrophe. 9 tests (Theory + 2 full-flow). Worth establishing as a pattern: any future user-controlled-text-in-spreadsheet export should sanitise the same way.
+- Endpoint sets `Cache-Control: no-store` and related headers — prevents caching of sensitive order data. Apply to any future endpoint returning user-specific data.
+
+Both patterns recorded in the Phase 6 retro under "what went well — to carry forward".
+
+**Phase 6 truly closed.** Tracker: task #7 → completed.
+
+Next available: Phase 6.5 (events listing — deferred enhancement) or skip straight to Phase 7 (deploy infrastructure). Both are unblocked. Wilhelm's call.
+
 ## 2026-05-11 — Phase 6 complete
 
 **CSV export** delivered. Manage-token holders can download `event-{slug}-orders-{date}.csv` from the manage page at any time; closing an event surfaces a one-time prompt to grab the CSV before moving on.

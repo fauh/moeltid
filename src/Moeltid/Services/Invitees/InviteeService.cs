@@ -152,6 +152,16 @@ public class InviteeService(
         await db.SaveChangesAsync();
     }
 
+    public async Task<IReadOnlyList<Invitee>> ListByEmailAsync(string email)
+    {
+        var normalised = email.Trim().ToLowerInvariant();
+        var list = await db.Invitees
+            .Where(i => i.Email == normalised)
+            .Include(i => i.Event)
+            .ToListAsync();
+        return [.. list.OrderBy(i => i.InvitedAt)];
+    }
+
     public async Task SendRemindersAsync(Guid eventId)
     {
         var unordered = await ListUnorderedByEventAsync(eventId);
