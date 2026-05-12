@@ -295,6 +295,88 @@ public class EventServiceTests : IClassFixture<InMemoryDatabaseFixture>
         (await ctx.MealOptions.AnyAsync(o => o.EventId == ev.Id)).ShouldBeFalse();
         (await ctx.Invitees.AnyAsync(i => i.EventId == ev.Id)).ShouldBeFalse();
     }
+
+    // ── ListPublicAsync ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ListPublicAsync_ExcludesPrivateEvents()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+        await _sut.CreateAsync(MakeRequest(title: $"Public-{suffix}") with { IsPrivate = false });
+        await _sut.CreateAsync(MakeRequest(title: $"Private-{suffix}") with { IsPrivate = true });
+
+        var sut2 = new EventService(
+            _db.CreateDbContext(),
+            new SlugGenerator(new TokenGenerator()),
+            new TokenGenerator(),
+            new NullEmailSender(),
+            DefaultEmailSettings,
+            new NullReminderService(),
+            NullLogger<EventService>.Instance);
+
+        var rows = await sut2.ListPublicAsync();
+        rows.ShouldNotContain(r => r.Event.Title == $"Private-{suffix}");
+        rows.ShouldContain(r => r.Event.Title == $"Public-{suffix}");
+    }
+
+    [Fact]
+    public async Task ListPublicAsync_OrderedCountMatchesAttendances()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+        var ev = await _sut.CreateAsync(MakeRequest(title: $"Count-{suffix}"));
+
+        // Seed two attendances directly
+        await using var ctx = _db.CreateDbContext();
+        ctx.Attendances.AddRange(
+            new Moeltid.Models.Attendance
+            {
+                Id = Guid.NewGuid(), EventId = ev.Id, Name = "Alice",
+                EditToken = Guid.NewGuid().ToString("N"),
+                OrderType = Moeltid.Models.OrderType.FreeText, FreeTextOrder = "Pasta",
+                SubmittedAt = DateTimeOffset.UtcNow,
+            },
+            new Moeltid.Models.Attendance
+            {
+                Id = Guid.NewGuid(), EventId = ev.Id, Name = "Bob",
+                EditToken = Guid.NewGuid().ToString("N"),
+                OrderType = Moeltid.Models.OrderType.FreeText, FreeTextOrder = "Salad",
+                SubmittedAt = DateTimeOffset.UtcNow,
+            });
+        await ctx.SaveChangesAsync();
+
+        var sut2 = new EventService(
+            _db.CreateDbContext(),
+            new SlugGenerator(new TokenGenerator()),
+            new TokenGenerator(),
+            new NullEmailSender(),
+            DefaultEmailSettings,
+            new NullReminderService(),
+            NullLogger<EventService>.Instance);
+
+        var rows = await sut2.ListPublicAsync();
+        var row = rows.First(r => r.Event.Id == ev.Id);
+        row.OrderedCount.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ListPublicAsync_IsOngoingFlag_TrueForFutureOpenEvent()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..6];
+        await _sut.CreateAsync(MakeRequest(title: $"Ongoing-{suffix}"));
+
+        var sut2 = new EventService(
+            _db.CreateDbContext(),
+            new SlugGenerator(new TokenGenerator()),
+            new TokenGenerator(),
+            new NullEmailSender(),
+            DefaultEmailSettings,
+            new NullReminderService(),
+            NullLogger<EventService>.Instance);
+
+        var rows = await sut2.ListPublicAsync();
+        var row = rows.First(r => r.Event.Title == $"Ongoing-{suffix}");
+        row.IsOngoing.ShouldBeTrue();
+    }
 }
 
 file sealed class NullEmailSender : IEmailSender

@@ -41,6 +41,7 @@ public class EventService(
                 TimeZoneId = request.TimeZoneId,
                 AllowFreeText = request.AllowFreeText,
                 AttendeeOrdersVisible = request.AttendeeOrdersVisible,
+                IsPrivate = request.IsPrivate,
                 OwnerName = request.OwnerName.Trim(),
                 OwnerEmail = request.OwnerEmail.Trim().ToLowerInvariant(),
                 ManageToken = tokenGenerator.RandomUrlSafeString(22),
@@ -110,9 +111,31 @@ public class EventService(
         ev.TimeZoneId = request.TimeZoneId;
         ev.AllowFreeText = request.AllowFreeText;
         ev.AttendeeOrdersVisible = request.AttendeeOrdersVisible;
+        ev.IsPrivate = request.IsPrivate;
 
         await db.SaveChangesAsync();
         return ev;
+    }
+
+    public async Task<IReadOnlyList<EventListRow>> ListPublicAsync()
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // Fetch all public events with attendance counts (correlated subquery)
+        var rows = await db.Events
+            .Where(e => !e.IsPrivate)
+            .Select(e => new
+            {
+                Event = e,
+                OrderedCount = db.Attendances.Count(a => a.EventId == e.Id),
+            })
+            .ToListAsync();
+
+        // IsOngoing evaluated client-side (DateTimeOffset comparison — SQLite limitation)
+        return [.. rows.Select(r => new EventListRow(
+            r.Event,
+            r.OrderedCount,
+            IsOngoing: !r.Event.IsClosed && r.Event.StartsAt > now))];
     }
 
     public async Task<Event> CloseAsync(Guid id)

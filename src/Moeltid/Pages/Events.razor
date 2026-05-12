@@ -1,0 +1,103 @@
+@page "/events"
+@using Moeltid.Services.Events
+@inject IEventService EventService
+
+<PageTitle>Events — Consid Måltid</PageTitle>
+
+<h1>Events</h1>
+
+@if (_loading)
+{
+    <p>Loading…</p>
+}
+else if (_grouped is null || (_grouped.Ongoing.Count == 0 && _grouped.Past.Count == 0))
+{
+    <p class="text-muted">No events yet. <a href="/new">Create one!</a></p>
+}
+else
+{
+    @if (_grouped.Ongoing.Count > 0)
+    {
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Date</th>
+                    <th>Orders</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _grouped.Ongoing)
+                {
+                    <tr style="cursor:pointer" @onclick="() => GoToEvent(row.Event.Slug)">
+                        <td>@row.Event.Title</td>
+                        <td class="text-muted"><small>@FormatDate(row.Event)</small></td>
+                        <td><span class="badge text-bg-secondary">@row.OrderedCount</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No upcoming events.</p>
+    }
+
+    @if (_grouped.Past.Count > 0)
+    {
+        <details class="mt-4">
+            <summary class="text-muted" style="cursor:pointer">
+                Past events (@_grouped.Past.Count)
+            </summary>
+            <table class="table table-sm table-hover mt-2">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Date</th>
+                        <th>Orders</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _grouped.Past)
+                    {
+                        <tr style="cursor:pointer" @onclick="() => GoToEvent(row.Event.Slug)">
+                            <td>@row.Event.Title</td>
+                            <td class="text-muted"><small>@FormatDate(row.Event)</small></td>
+                            <td><span class="badge text-bg-secondary">@row.OrderedCount</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </details>
+    }
+}
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private bool _loading = true;
+    private PublicEventGrouping.Result? _grouped;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var rows = await EventService.ListPublicAsync();
+        _grouped = PublicEventGrouping.Build(rows);
+        _loading = false;
+    }
+
+    private void GoToEvent(string slug) => Nav.NavigateTo($"/e/{slug}");
+
+    private static string FormatDate(Moeltid.Models.Event ev)
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(ev.TimeZoneId);
+            var local = TimeZoneInfo.ConvertTime(ev.StartsAt, tz);
+            return $"{local:yyyy-MM-dd HH:mm} ({ev.TimeZoneId})";
+        }
+        catch
+        {
+            return ev.StartsAt.ToString("yyyy-MM-dd HH:mm") + " UTC";
+        }
+    }
+}

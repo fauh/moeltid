@@ -6,6 +6,32 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-12 — Phase 6.6 complete
+
+**Public event browse (`/events`)** delivered. Phase 6.5 magic-link infrastructure removed; replaced with a simple public browse page and a per-event `IsPrivate` opt-out.
+
+**Removal** (Phase 6.5 teardown):
+- `MyEventsAccessToken` entity, migration, DbSet, and model config deleted.
+- `DropMyEventsAccessToken` migration created.
+- `MyEventsService`, `IMyEventsService`, `MyEventsListBuilder` deleted.
+- `Pages/MyEvents.razor` deleted.
+- Landing-page "See all your events" link removed.
+- DI registration removed from `Program.cs`.
+- `MyEventsServiceTests` and `MyEventsListBuilderTests` deleted.
+
+**Build**:
+- `Event.IsPrivate` bool column (default `false`) + `AddEventIsPrivate` migration.
+- `CreateEventRequest` and `UpdateEventRequest` extended with `IsPrivate`.
+- `EventService.ListPublicAsync()` returns `IReadOnlyList<EventListRow>` (correlated attendance count, client-side `IsOngoing` flag).
+- `PublicEventGrouping` pure helper: splits + orders rows into `(Ongoing, Past)`.
+- `Events.razor` at `/events`: ongoing table + `<details>` collapsed past section, each row links to `/e/{slug}`.
+- `NewEvent.razor` + `ManageEvent.razor`: "Private event (link-only)" checkbox.
+- Landing page: "Browse events" button alongside "Create an event".
+- 9 new tests (116 → 125): `PublicEventGroupingTests` (6) + `ListPublicAsync` tests in `EventServiceTests` (3).
+- `design.md` §1, §3, §5, §6, §8 rewritten to reflect public-by-default model.
+
+**Stats**: 125 tests passing. Build: 0 errors.
+
 ## 2026-05-12 — Phase 6.5 complete
 
 **Events discovery (`/my-events`)** delivered. Any user can enter their email, receive a one-time magic link, and see every event they're connected to as owner, attendee, or invitee.
@@ -21,6 +47,31 @@ Format: one section per date (or per work session). Within a date, group entries
 - `design.md` §3, §5, §6 updated. `change_log.md` this entry. `phase-6.5-plan.md` retro filled in.
 
 **Stats**: 134 tests passing (116 → 134, +18). Build: 0 errors.
+
+## 2026-05-11 — Phase 6.6 plan locked
+
+Wilhelm signed off the task breakdown ("go!"). §Decisions was already locked from the paraphrase pass earlier in the day. Phase 6.6 is executor-ready.
+
+## 2026-05-11 — Phase 6.6 plan (Phase 6.5 redo) + paraphrase-and-confirm rule added
+
+Wilhelm tested Phase 6.5 and rejected it: not "magic-link list of events tied to my email" but "browse all events publicly, with privacy as an opt-in per event". The Phase 6.5 plan documents had been internally consistent through every review, but they had drifted from his mental model. The existing discipline rules don't catch user-vs-document inconsistency.
+
+**New process rule added to `process.md` §"Phase decomposition"**: **paraphrase-and-confirm** — before locking a plan (and at any moment where structured questions risk narrowing the user into the wrong frame), paraphrase what you understand the user is asking for in one or two plain sentences and ask *"is this what you want to build?"*. The previous rules catch internal inconsistency; this one catches the user-vs-document gap. Phase 6.5 is the canonical example named in the rule.
+
+**Paraphrase-and-confirm pass applied** in-turn: I paraphrased the new direction back, Wilhelm confirmed ("This looks correct!"). All design questions resolved at the paraphrase level.
+
+**Phase 6.6 plan written**: `docs/phases/phase-6.6-plan.md`. Two halves — a removal pass (delete `MyEventsAccessToken` entity + migration drop, `MyEventsService`, `MyEventsListBuilder`, `Pages/MyEvents.razor`, landing-page link, tests, DI) and a build pass (`Event.IsPrivate` field + migration, public `/events` page, `ListPublicAsync` + `PublicEventGrouping` pure helper, create/edit form checkbox, landing-page browse link, tests, design.md rewrite). 17 tasks.
+
+**Locked decisions** (no open questions; paraphrase covered everything):
+- `Event.IsPrivate` defaults to `false` — events are public unless owner opts in.
+- `/events` is anonymous, no auth, no email.
+- Row contents: title, event date in event TZ, ordered-count.
+- Ordering: ongoing by `StartsAt` ascending; past collapsed in `<details>` ordered descending.
+- Phase 6.5 infrastructure fully removed (no salvage of `MyEventsListBuilder` — aggregation-by-role doesn't apply).
+- `AttendeeOrdersVisible` stays as an independent toggle (different question).
+- `/recover` stays as-is.
+
+Phase 6.6 plan awaiting sign-off on the task breakdown only. The §Decisions section is already locked from the paraphrase.
 
 ## 2026-05-11 — Phase 6.5 plan signed off + `/recover` one-email fix
 

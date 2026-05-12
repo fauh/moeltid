@@ -72,6 +72,12 @@
         <div class="form-text">When enabled, attendees can see each other's names and orders on the event page.</div>
     </div>
 
+    <div class="mb-3 form-check">
+        <InputCheckbox id="isPrivate" class="form-check-input" @bind-Value="model.IsPrivate" />
+        <label class="form-check-label" for="isPrivate">Private event (link-only)</label>
+        <div class="form-text">When ticked, this event won't appear in the public browse list. Only people with the direct link can see it.</div>
+    </div>
+
     @* ── Preset meal options ──────────────────────────────────────────────── *@
     <hr class="my-4" />
     <h2 class="h5">Preset meal options <span class="text-muted fw-normal fs-6">(optional)</span></h2>
@@ -207,7 +213,8 @@
                 AllowFreeText: model.AllowFreeText,
                 AttendeeOrdersVisible: model.AttendeeOrdersVisible,
                 MealOptions: draftOptions,
-                InviteeEmails: inviteeEmails
+                InviteeEmails: inviteeEmails,
+                IsPrivate: model.IsPrivate
             ));
             Nav.NavigateTo($"/created/{ev.Id}");
         }
@@ -246,6 +253,7 @@
 
         public bool AllowFreeText { get; set; } = true;
         public bool AttendeeOrdersVisible { get; set; } = true;
+        public bool IsPrivate { get; set; }
 
         // Raw comma/newline-separated invite emails from the textarea
         public string? InviteeEmailsRaw { get; set; }
