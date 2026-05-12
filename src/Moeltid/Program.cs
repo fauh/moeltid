@@ -1,5 +1,6 @@
 using Hangfire;
 using Hangfire.Storage.SQLite;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Moeltid.Data;
 using Moeltid.Endpoints;
@@ -13,6 +14,12 @@ using Moeltid.Services.Reminders;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Static web assets in Production ──────────────────────────────────────────
+// Static web assets (incl. Blazor's framework JS at /_framework/blazor.server.js)
+// are auto-wired in Development but NOT in Production. Without this, the published
+// app 404s on framework files and Blazor Server fails to bootstrap in the browser.
+builder.WebHost.UseStaticWebAssets();
+
 // ── Connection string — DATA_DIR env var for container deployments ────────────
 // Development default: DATA_DIR not set → "Data Source=moeltid.db" (relative to CWD).
 // Production (Fly.io): DATA_DIR=/data is set in fly.toml's [env] block so SQLite
@@ -25,6 +32,14 @@ if (!string.IsNullOrWhiteSpace(dataDir))
 {
     builder.Configuration["ConnectionStrings:DefaultConnection"] =
         $"Data Source={Path.Combine(dataDir, "moeltid.db")}";
+
+    // ── Data Protection keys — persist to the mounted volume ──────────────────
+    // Without this, ASP.NET Core's Data Protection writes ephemeral keys inside
+    // the container that vanish on restart. Antiforgery tokens, auth cookies, etc.
+    // minted by yesterday's container can't be decrypted by today's, producing
+    // "key not found in key ring" errors on every form submit.
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "dataprotection-keys")));
 }
 
 // ── Reminders / Hangfire — conditionally disabled in prod ────────────────────
@@ -108,7 +123,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// UseHttpsRedirection removed: Fly.io's edge proxy (force_https = true in fly.toml)
+// already redirects HTTP→HTTPS at the edge. Inside the container the app only
+// ever sees HTTP on port 8080, and the redirect middleware then logs
+// "Failed to determine the https port" because no inside-container HTTPS port
+// is configured. Removing it eliminates the noise without changing user-facing behavior.
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
