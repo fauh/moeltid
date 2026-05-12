@@ -12,7 +12,7 @@ public static class MyEventsListBuilder
     /// <param name="ownedEvents">Events where <c>OwnerEmail</c> matches the requesting email.</param>
     /// <param name="attendances">Attendances (with <c>Event</c> included) where <c>Email</c> matches.</param>
     /// <param name="invitees">Invitees (with <c>Event</c> included) where <c>Email</c> matches.</param>
-    /// <param name="emailSettings">Base URL for generating absolute action URLs.</param>
+    /// <param name="baseUrl">Base URL for generating absolute action URLs.</param>
     /// <param name="now">Current time; controls the IsOngoing flag. Defaults to UtcNow when null.</param>
     public static IReadOnlyList<MyEventRow> Build(
         IReadOnlyList<Event> ownedEvents,
