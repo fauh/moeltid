@@ -14,12 +14,6 @@ using Moeltid.Services.Reminders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Static web assets in Production ──────────────────────────────────────────
-// Static web assets (incl. Blazor's framework JS at /_framework/blazor.server.js)
-// are auto-wired in Development but NOT in Production. Without this, the published
-// app 404s on framework files and Blazor Server fails to bootstrap in the browser.
-builder.WebHost.UseStaticWebAssets();
-
 // ── Connection string — DATA_DIR env var for container deployments ────────────
 // Development default: DATA_DIR not set → "Data Source=moeltid.db" (relative to CWD).
 // Production (Fly.io): DATA_DIR=/data is set in fly.toml's [env] block so SQLite
@@ -128,7 +122,13 @@ if (!app.Environment.IsDevelopment())
 // ever sees HTTP on port 8080, and the redirect middleware then logs
 // "Failed to determine the https port" because no inside-container HTTPS port
 // is configured. Removing it eliminates the noise without changing user-facing behavior.
-app.UseStaticFiles();
+
+// UseStaticFiles removed in favour of MapStaticAssets (below). .NET 9+ publishes
+// a "*.staticwebassets.endpoints.json" manifest instead of the legacy
+// "*.staticwebassets.runtime.json", and only MapStaticAssets reads the new one.
+// Without this swap, the published app 404s on /_framework/blazor.server.js
+// (and every other framework asset) and Blazor Server never bootstraps.
+
 app.UseRouting();
 app.UseAntiforgery();
 
@@ -138,6 +138,7 @@ if (app.Environment.IsDevelopment() && remindersSettings.Enabled)
     app.UseHangfireDashboard();
 }
 
+app.MapStaticAssets();
 app.MapHealthChecks("/health");
 app.MapAttendanceEndpoints();
 app.MapExportEndpoints();
