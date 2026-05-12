@@ -1,4 +1,5 @@
 @page "/e/{Slug}/manage"
+@using Microsoft.Extensions.Options
 @using Moeltid.Models
 @using Moeltid.Services.Attendances
 @using Moeltid.Services.Events
@@ -11,6 +12,7 @@
 @inject IAttendanceService AttendanceService
 @inject IInviteeService InviteeService
 @inject IReminderService ReminderService
+@inject IOptions<RemindersSettings> RemindersOptions
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -325,6 +327,8 @@ else
     </section>
 
     <!-- ── Scheduled reminder ───────────────────────────────────────── -->
+    @if (RemindersOptions.Value.Enabled)
+    {
     <section class="mt-5">
         <h2 class="h4">Scheduled reminder</h2>
         <p class="text-muted small">
@@ -372,6 +376,7 @@ else
             </div>
         }
     </section>
+    } @* end @if (RemindersOptions.Value.Enabled) *@
 
     <!-- ── Attendee orders ────────────────────────────────────────────── -->
     <section class="mt-5">

@@ -69,9 +69,9 @@ else
             <div class="card-body">
                 <h2 class="card-title h5">Submit your order</h2>
 
-                @if (HttpContextAccessor.HttpContext is not null)
+                @if (HttpContextAccessor.HttpContext is { } httpCtx)
                 {
-                    var tokens = Antiforgery.GetAndStoreTokens(HttpContextAccessor.HttpContext);
+                    var tokens = Antiforgery.GetAndStoreTokens(httpCtx);
                     <form method="post" action="/e/@Slug/order">
                         <input type="hidden" name="@tokens.FormFieldName" value="@tokens.RequestToken" />
 
@@ -150,6 +150,14 @@ else
                             <button type="submit" class="btn btn-primary">Submit order</button>
                         }
                     </form>
+                }
+                else
+                {
+                    @* Reached via soft Blazor navigation — response already sent, can't set antiforgery cookie. *@
+                    <p class="text-muted">
+                        <a href="/e/@Slug" @onclick:preventDefault @onclick="ReloadPage">Reload this page</a>
+                        to submit your order.
+                    </p>
                 }
             </div>
         </div>
@@ -257,9 +265,13 @@ else
             ? []
             : AttendanceVisibility.Apply(attendances, ev.AttendeeOrdersVisible, myAttendance?.Id);
 
-    // forceLoad is required because /e/{slug}/edit-order renders a form that
-    // depends on HttpContext (for antiforgery tokens). Soft-nav inside the
-    // SignalR circuit leaves HttpContext null and the form silently fails.
+    // forceLoad is required because pages that render forms with antiforgery tokens depend on
+    // HttpContext to write a Set-Cookie header. Soft Blazor navigation reuses the existing
+    // SignalR circuit's already-sent HTTP response, so the cookie write throws "Headers are
+    // read-only". forceLoad forces a fresh HTTP request, giving us a clean HttpContext.
     private void GoToEditOrder() =>
         Nav.NavigateTo($"/e/{Slug}/edit-order?t={EditToken}", forceLoad: true);
+
+    private void ReloadPage() =>
+        Nav.NavigateTo($"/e/{Slug}", forceLoad: true);
 }

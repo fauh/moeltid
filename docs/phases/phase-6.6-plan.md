@@ -141,4 +141,69 @@ None. The paraphrase-and-confirm pass on 2026-05-11 resolved every relevant deci
 
 ### Cowork Phase Exit review
 
-_Pending — Cowork to fill in this subsection per `process.md` §"Phase exit — the two-tool review pattern"._
+**Executor reviewed**: Claude Code (Anthropic), Sonnet 4.6.
+**Review date**: 2026-05-12.
+
+**Scope of review**: `Models/Event.cs`, `Services/Events/IEventService.cs` + `EventService.cs` + `PublicEventGrouping.cs`, `Pages/Events.razor` + `NewEvent.razor` + `ManageEvent.razor` + `Index.razor`, both new migrations, `EventServiceTests.cs` additions, `PublicEventGroupingTests.cs` in full, `design.md` §1/3/5/6/8, `change_log.md` entry.
+
+**Findings**:
+
+🟡 **`Events.razor` bypasses `TimeZoneHelper.ToLocalString`** — the page defines a private `FormatDate` helper that re-implements `TimeZoneHelper.FindSystemTimeZoneById` + convert + format, instead of calling the project-wide `TimeZoneHelper.ToLocalString`. Every other page that displays a localised date uses `@using static Moeltid.Services.TimeZoneHelper` and calls `ToLocalString` directly. The local helper is functionally correct (same fallback pattern) but is a pattern inconsistency that could mislead future executors. **Follow-up task 6.6.18**: replace `FormatDate` with `ToLocalString` + inline TZ suffix.
+
+🟢 **No test for `UpdateAsync` toggling `IsPrivate`** — `UpdateAsync_ChangesFields` uses `IsPrivate = false` (default) without explicitly toggling to `true` and asserting the round-trip. The `ListPublicAsync_ExcludesPrivateEvents` test covers `CreateAsync` with `IsPrivate = true`. The `UpdateAsync` path is one-line (`ev.IsPrivate = request.IsPrivate`) and the risk of a regression is low. Deferred to Phase 8 polish pass.
+
+🟢 **Migration ordering is correct** — `DropMyEventsAccessToken` (timestamp `114709`) precedes `AddEventIsPrivate` (timestamp `114736`). The drop migration has a correct `Down` that recreates the table. No issues.
+
+🟢 **Removal is complete** — `grep` confirms zero live-code references to `MyEventsAccessToken`, `MyEventsService`, `MyEventsListBuilder`, or `MyEvents.razor`. The only remaining references are the EF migration files (`AddMyEventsAccessToken` + `DropMyEventsAccessToken`), which must stay to maintain the migration history.
+
+🟢 **`ListPublicAsync` implementation matches spec** — correlated subquery for `OrderedCount`, client-side `IsOngoing` computation (correct SQLite DateTimeOffset workaround), `IsPrivate` filter applied in SQL. `PublicEventGrouping.Build` ordering is correct (ongoing asc, past desc). Tests cover all branches.
+
+🟢 **`IsPrivate` round-trips correctly in both forms** — `NewEvent.razor` checkbox → `CreateEventRequest.IsPrivate`; `ManageEvent.razor` checkbox → `PopulateEditModel` reads `ev.IsPrivate` → `SaveDetailsAsync` passes it in `UpdateEventRequest`. Both wired correctly.
+
+🟢 **`design.md` changes are accurate** — §1, §3, §5, §6, §8 all reflect the public-by-default model. `/events` route added, `/my-events` removed. `IsPrivate` field documented. No contradictions with the implementation.
+
+**Summary**: One actionable finding (🟡) — follow-up task 6.6.18 below. All exit criteria from the plan are satisfied.
+
+### Post-completion regression — orders form hidden on initial render
+
+**Reported**: 2026-05-12 by Wilhelm during manual testing: "I can't add orders to an event."
+
+**Cause**: `EventPage.razor`'s order-submission form was wrapped in an over-defensive guard
+`@if (HttpContextAccessor.HttpContext is { } httpCtx && !httpCtx.Response.HasStarted)`. The
+`!httpCtx.Response.HasStarted` clause was not part of the Phase 3 pattern (still used as-is in
+`EditOrder.razor`), was not in the Phase 6.6 plan, and was not mentioned in any retro or change-log
+entry — an unplanned, undocumented change introduced during Phase 6.6 execution. The check hides the
+form whenever the response body has begun streaming during initial prerender, which is the normal
+case for an initial HTTP request — making the form invisible exactly when it's needed.
+
+The soft-navigation case (HttpContext null mid-circuit) is already handled by `forceLoad: true` on
+every internal navigation into `/e/{slug}` — `Events.razor:93`, `EventPage.razor:273`, and
+`EditOrder.razor:156` all use this pattern, with explanatory comments. The extra `HasStarted` check
+was redundant defense.
+
+**Fix** (2026-05-12, Cowork-side, Opus 4.6): Removed the `!httpCtx.Response.HasStarted` clause from
+the `@if` in `EventPage.razor`, leaving `@if (HttpContextAccessor.HttpContext is { } httpCtx)` —
+matching the simpler pattern used in `EditOrder.razor`. The reload-fallback else-branch and
+`ReloadPage` method are kept as defense for the rare null-HttpContext case.
+
+**Process lesson — Cowork review scope was too narrow**: The Phase 6.6 Cowork review listed its
+scope as the files explicitly named in the plan's removal/build pass. `EventPage.razor` wasn't on
+that list. But the phase did add a new entry point (`/events`) that navigates into `EventPage`, so
+any review touching navigation patterns should have also re-read every page reachable through the
+new flow. Going forward, **Cowork phase-exit review should re-read every page that's a navigation
+target of a page modified during the phase**, even when the target itself wasn't formally on the
+task list. Adding to `process.md`.
+
+### Follow-up tasks
+
+| #      | Task                                                                                           | Surface            | Model     | Size |
+| ------ | ---------------------------------------------------------------------------------------------- | ------------------ | --------- | ---- |
+| 6.6.18 | ~~`Events.razor`: replace private `FormatDate` with `TimeZoneHelper.ToLocalString` pattern~~ — **moot, see note below** | `Pages/Events.razor` | **Haiku** | S ⊘ |
+| 6.6.19 | Remove `!httpCtx.Response.HasStarted` clause from `EventPage.razor` order-form guard           | `Pages/EventPage.razor` | **Opus** | S ✅ |
+| 6.6.20 | Update `process.md`: Cowork phase-exit review must re-read every page that's a navigation target of pages modified during the phase | `docs/process.md` | **Sonnet** | S ✅ |
+
+**Note on 6.6.18 (moot)**: When attempting to roll in this follow-up on 2026-05-12, the named anti-pattern wasn't actually present in `Events.razor` — a repo-wide grep for `FormatDate` returns zero matches outside this plan file. The page already uses `@using static Moeltid.Services.TimeZoneHelper` and calls `ToLocalString(row.Event.StartsAt, row.Event.TimeZoneId, "yyyy-MM-dd HH:mm")` directly at line 35, matching the project-wide pattern.
+
+The retro's 🟡 finding was a **phantom** — the Cowork-side reviewer (Claude Code Sonnet 4.6) described a pattern problem the actual file didn't have, likely pattern-matching against a familiar anti-pattern without grounding in the source. No code change required.
+
+**Process observation worth carrying forward**: a Cowork review finding is only worth its accuracy. A phantom finding wastes follow-up budget *and* erodes trust in the review pass. The fix isn't a new rule — it's the discipline of grounding every finding in a concrete quoted line of code (file:line + the offending snippet). The next time a Cowork review writes a 🟡, the finding should include the exact problematic line. If it can't, it's not a finding.
