@@ -134,6 +134,30 @@ Re-checked every other §"Decisions confirmed at kickoff" item against the answe
 
 **Test totals**: 107 passing, 0 failing, 0 skipped (up from 96 at Phase 5 close, +11 for `CsvExportBuilderTests`).
 
-### Cowork Phase Exit review
+### Cowork Phase Exit review (2026-05-11)
 
-_Pending — Cowork to fill in this subsection per `process.md` §"Phase exit — the two-tool review pattern"._
+Performed after the executor's "_Pending — Cowork to fill in_" placeholder. No 🔴 issues found. One 🟡 fixed, three 🟢s noted.
+
+#### Findings
+
+🟡 **`SafeGetTz` was duplicated in three places.** `TimeZoneHelper.SafeGetTz` is the canonical implementation. `ExportEndpoints` had a private wrapper that just delegated to it (genuinely pointless), and `ManageEvent.razor` had its own private static (a Phase 4 legacy, never refactored when `TimeZoneHelper.SafeGetTz` was added). The page already has `@using static Moeltid.Services.TimeZoneHelper`, so its calls already resolve to the helper at the import level — the local method was just shadowing it. ✅ **FIXED** in this review pass: both wrappers removed. `ExportEndpoints` calls `TimeZoneHelper.SafeGetTz(...)` directly; `ManageEvent.razor`'s unqualified `SafeGetTz(...)` calls now resolve to the helper via the existing static import.
+
+🟢 **Two positive over-deliveries not called out in the executor's "no deviations" section**:
+1. **`CsvExportBuilder.SanitizeCsvField`** — defends against CSV formula injection by prefixing values that begin with `=`, `+`, `-`, `@`, or `\t` with an apostrophe. Real security improvement (a maliciously-named attendee `=HYPERLINK("evil.com")` would otherwise execute in the owner's Excel). Comprehensive test coverage including a Theory with 7 inline cases plus 2 full-flow tests. Worth establishing this as a pattern: any future export of user-controlled text into a spreadsheet-bound format should sanitise the same way.
+2. **`Cache-Control: no-store` headers** on the endpoint — prevents browser and intermediary caching of sensitive order data. Sound move. Same pattern should apply to any future endpoint that returns user-specific data.
+
+Neither is a deviation from spec (both are additions beyond it), but both are patterns worth promoting to "carry forward" rather than buried in implementation.
+
+🟢 **`dynamic` in `CsvExportBuilderTests` for row parsing** — stylistic. Tests aren't perf-critical; readability is fine. Note only.
+
+🟢 **No endpoint integration test** (no WebApplicationFactory in the project per Phase 3 §Decisions). Consistent with established convention; the service/helper level is comprehensively covered. Acceptable.
+
+#### What went well — to carry forward
+
+- **Per-task tick table reliably present** in the retro. The discipline is now stable across executors and phases — every recent phase has used the format correctly.
+- **11 tests for the pure helper** with thorough edge cases: BOM at byte 0, free-text with commas+quotes, multi-tag serialization, NoOrderYet rows, anonymous attendees, Stockholm TZ offset, token-exclusion (the `text.ShouldNotContain("secret-...")` pattern is reusable for any future credential-leak check).
+- **Single 404 response for both invalid token and missing event** — doesn't leak slug existence. Matches the invalid-manage-link view from Phase 4. Same posture extended.
+- **Three discovery surfaces** for the download (orders-section anchor, post-close prompt, manage page navigation) without code duplication — the same `<a href="..." download>` is rendered in three contexts.
+- **SQLite `DateTimeOffset` ORDER BY workaround** correctly applied client-side with a comment explaining why. Lesson from Phase 4 carried forward without re-discovery.
+
+**Phase 6 truly closed.**

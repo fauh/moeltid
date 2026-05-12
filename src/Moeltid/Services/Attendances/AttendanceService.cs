@@ -103,6 +103,16 @@ public class AttendanceService(
         return [.. list.OrderBy(a => a.SubmittedAt)];
     }
 
+    public async Task<IReadOnlyList<Attendance>> ListByEmailAsync(string email)
+    {
+        var normalised = email.Trim().ToLowerInvariant();
+        var list = await db.Attendances
+            .Where(a => a.Email == normalised)
+            .Include(a => a.Event)
+            .ToListAsync();
+        return [.. list.OrderBy(a => a.SubmittedAt)];
+    }
+
     private async Task SendEditLinkEmailAsync(Attendance attendance)
     {
         var ev = await db.Events.FindAsync(attendance.EventId);

@@ -59,29 +59,54 @@ else
             var events = await EventService.GetByOwnerEmailAsync(email);
 
             // Always show the same success message — don't leak whether the email matched
-            // any events. Send one email per matching event so each link is directly clickable.
-            var baseUrl = EmailSettingsOptions.Value.BaseUrl;
-            foreach (var ev in events)
+            // any events. When there are matches, send ONE email containing every manage link
+            // (was previously one email per event — inbox-clutter bug fixed 2026-05-11).
+            if (events.Count > 0)
             {
-                var manageUrl = $"{baseUrl}/e/{ev.Slug}/manage?t={ev.ManageToken}";
-                var subject = $"Your manage link for \"{ev.Title}\"";
-                var body = $"""
-                    Hi {ev.OwnerName},
+                var baseUrl = EmailSettingsOptions.Value.BaseUrl;
+                var recipient = events[0].OwnerEmail;
+                var subject = events.Count == 1
+                    ? $"Your manage link for \"{events[0].Title}\""
+                    : $"Your manage links ({events.Count} events)";
 
-                    Here is your manage link for "{ev.Title}":
-                    {manageUrl}
+                string body;
+                if (events.Count == 1)
+                {
+                    var ev = events[0];
+                    var manageUrl = $"{baseUrl}/e/{ev.Slug}/manage?t={ev.ManageToken}";
+                    body = $"""
+                        Hi {ev.OwnerName},
 
-                    Save this — share it with co-admins. Anyone with the link can manage the event.
-                    """;
+                        Here is your manage link for "{ev.Title}":
+                        {manageUrl}
+
+                        Save this — share it with co-admins. Anyone with the link can manage the event.
+                        """;
+                }
+                else
+                {
+                    var lines = string.Join("\n", events.Select(ev =>
+                        $"- \"{ev.Title}\": {baseUrl}/e/{ev.Slug}/manage?t={ev.ManageToken}"));
+                    body = $"""
+                        Hi,
+
+                        You have {events.Count} events on this email. Here are the manage links:
+
+                        {lines}
+
+                        Save these — anyone with a link can manage the corresponding event. Share with co-admins as needed.
+                        """;
+                }
+
                 try
                 {
-                    await EmailSender.SendAsync(ev.OwnerEmail, subject, body);
+                    await EmailSender.SendAsync(recipient, subject, body);
                 }
                 catch (Exception ex)
                 {
                     Logger.LogWarning(ex,
-                        "Failed to send recover email to {Email} for event {EventId}.",
-                        ev.OwnerEmail, ev.Id);
+                        "Failed to send recover email to {Email} ({EventCount} events).",
+                        recipient, events.Count);
                 }
             }
 

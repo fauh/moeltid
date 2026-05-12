@@ -772,12 +772,6 @@ else
         finally { savingReminder = false; }
     }
 
-    private static TimeZoneInfo SafeGetTz(string ianaId)
-    {
-        try { return TimeZoneInfo.FindSystemTimeZoneById(ianaId); }
-        catch { return TimeZoneInfo.Utc; }
-    }
-
     // ── EditEventModel ──
 
     private sealed class EditEventModel

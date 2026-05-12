@@ -25,4 +25,7 @@ public interface IInviteeService
 
     /// <summary>Sends a reminder email to every invitee who has not yet submitted an order.</summary>
     Task SendRemindersAsync(Guid eventId);
+
+    /// <summary>Returns all invitee rows where <see cref="Invitee.Email"/> matches (case-insensitive).</summary>
+    Task<IReadOnlyList<Invitee>> ListByEmailAsync(string email);
 }

@@ -42,7 +42,7 @@ public static class ExportEndpoints
             var bytes = CsvExportBuilder.Build(ev, attendances, invitees);
 
             // Date in event's owner TZ for the file name
-            var tz = SafeGetTz(ev.TimeZoneId);
+            var tz = TimeZoneHelper.SafeGetTz(ev.TimeZoneId);
             var dateStr = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz).ToString("yyyy-MM-dd");
             var fileName = $"event-{ev.Slug}-orders-{dateStr}.csv";
 
@@ -53,10 +53,5 @@ public static class ExportEndpoints
 
             return Results.File(bytes, "text/csv; charset=utf-8", fileName);
         });
-    }
-
-    private static TimeZoneInfo SafeGetTz(string ianaId)
-    {
-        return TimeZoneHelper.SafeGetTz(ianaId);
     }
 }
