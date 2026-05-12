@@ -108,7 +108,6 @@ public class AttendanceService(
         var normalised = email.Trim().ToLowerInvariant();
         var list = await db.Attendances
             .Where(a => a.Email == normalised)
-            .Include(a => a.MealOption)
             .Include(a => a.Event)
             .ToListAsync();
         return [.. list.OrderBy(a => a.SubmittedAt)];
