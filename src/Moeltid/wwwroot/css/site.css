@@ -278,6 +278,11 @@ a:hover, .btn-link:hover {
     animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .spinner {
+        animation: none;
+    }
+}
 
 /* ── Blazor error UI ── */
 #blazor-error-ui {
