@@ -45,8 +45,13 @@ var remindersSettings = builder.Configuration
     .Get<RemindersSettings>() ?? new RemindersSettings();
 
 // ── Core services ────────────────────────────────────────────────────────────
+// Modern .NET 9+ Blazor hosting: AddRazorComponents (replaces AddServerSideBlazor)
+// + AddInteractiveServerComponents for SignalR-backed interactivity.
+// AddRazorPages is still needed for the scaffold-generated Pages/Error.cshtml,
+// which is the target of app.UseExceptionHandler("/Error") in non-Dev environments.
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
 builder.Services.AddAntiforgery();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHealthChecks();
@@ -126,8 +131,8 @@ if (!app.Environment.IsDevelopment())
 // UseStaticFiles removed in favour of MapStaticAssets (below). .NET 9+ publishes
 // a "*.staticwebassets.endpoints.json" manifest instead of the legacy
 // "*.staticwebassets.runtime.json", and only MapStaticAssets reads the new one.
-// Without this swap, the published app 404s on /_framework/blazor.server.js
-// (and every other framework asset) and Blazor Server never bootstraps.
+// Without this swap, the published app 404s on /_framework/blazor.web.js
+// (and every other framework asset) and Blazor never bootstraps.
 
 app.UseRouting();
 app.UseAntiforgery();
@@ -142,7 +147,11 @@ app.MapStaticAssets();
 app.MapHealthChecks("/health");
 app.MapAttendanceEndpoints();
 app.MapExportEndpoints();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
+app.MapRazorPages();  // Pages/Error.cshtml for the global exception handler.
+// MapRazorComponents replaces MapBlazorHub + MapFallbackToPage("/_Host").
+// AddInteractiveServerRenderMode wires up the SignalR circuit for the
+// @rendermode="InteractiveServer" components in App.razor.
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 app.Run();
