@@ -129,12 +129,12 @@ if (!app.Environment.IsDevelopment())
 // "Failed to determine the https port" because no inside-container HTTPS port
 // is configured. Removing it eliminates the noise without changing user-facing behavior.
 
-// UseStaticFiles removed in favour of MapStaticAssets (below). .NET 9+ publishes
-// a "*.staticwebassets.endpoints.json" manifest instead of the legacy
-// "*.staticwebassets.runtime.json", and only MapStaticAssets reads the new one.
-// Without this swap, the published app 404s on /_framework/blazor.web.js
-// (and every other framework asset) and Blazor never bootstraps.
-
+// UseStaticFiles serves physical wwwroot files (including _framework/blazor.web.js
+// and other framework assets). MapStaticAssets (below) is complementary — it serves
+// fingerprinted app assets (css, images) with optimal cache headers from the publish
+// manifest. Both are needed: removing UseStaticFiles causes _framework 404s because
+// those files are not included in MapStaticAssets' manifest.
+app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
 

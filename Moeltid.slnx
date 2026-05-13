@@ -10,11 +10,21 @@
     <File Path="docs/phases/phase-2-plan.md" />
     <File Path="docs/phases/phase-2.5-plan.md" />
     <File Path="docs/phases/phase-3-plan.md" />
+    <File Path="docs/phases/phase-4-plan.md" />
+    <File Path="docs/phases/phase-4.5-plan.md" />
+    <File Path="docs/phases/phase-5-plan.md" />
+    <File Path="docs/phases/phase-6-plan.md" />
+    <File Path="docs/phases/phase-6.5-plan.md" />
+    <File Path="docs/phases/phase-6.6-plan.md" />
+    <File Path="docs/phases/phase-7-plan.md" />
   </Folder>
   <Folder Name="/Solution Items/">
+    <File Path="Dockerfile" />
     <File Path="docs/design.md" />
     <File Path="docs/process.md" />
     <File Path="docs/roadmap.md" />
+    <File Path="entrypoint.sh" />
+    <File Path="fly.toml" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Moeltid/Moeltid.csproj" />
