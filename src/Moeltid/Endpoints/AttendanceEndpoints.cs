@@ -24,6 +24,7 @@ public static class AttendanceEndpoints
             var ev = await eventService.GetBySlugAsync(slug);
             if (ev is null) return Results.NotFound();
             if (ev.IsClosed) return Results.BadRequest("This event is closed.");
+            if (DateTimeOffset.UtcNow > ev.Deadline) return Results.BadRequest("The order deadline has passed.");
 
             var form = await httpContext.Request.ReadFormAsync();
             var name = form["name"].ToString().Trim();
@@ -73,6 +74,7 @@ public static class AttendanceEndpoints
             var ev = await eventService.GetBySlugAsync(slug);
             if (ev is null) return Results.NotFound();
             if (ev.IsClosed) return Results.BadRequest("This event is closed.");
+            if (DateTimeOffset.UtcNow > ev.Deadline) return Results.BadRequest("The order deadline has passed.");
 
             var attendance = await attendanceService.GetByEditTokenAsync(
                 (await httpContext.Request.ReadFormAsync())["editToken"].ToString());
@@ -119,6 +121,7 @@ public static class AttendanceEndpoints
             var ev = await eventService.GetBySlugAsync(slug);
             if (ev is null) return Results.NotFound();
             if (ev.IsClosed) return Results.BadRequest("This event is closed.");
+            if (DateTimeOffset.UtcNow > ev.Deadline) return Results.BadRequest("The order deadline has passed.");
 
             var form = await httpContext.Request.ReadFormAsync();
             var attendance = await attendanceService.GetByEditTokenAsync(form["editToken"].ToString());

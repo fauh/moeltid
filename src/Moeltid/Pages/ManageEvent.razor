@@ -26,7 +26,7 @@
 }
 else if (ev is null)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else
 {
@@ -399,10 +399,15 @@ else
 
         @if (attendances.Count == 0)
         {
-            <p class="text-muted">No orders yet.</p>
+            <div class="empty-state">
+                <div class="empty-state-icon">🍽️</div>
+                <h3>No orders yet</h3>
+                <p>Share the event link so attendees can register their orders.</p>
+            </div>
         }
         else
         {
+            <div class="table-responsive">
             <table class="table table-sm">
                 <thead>
                     <tr>
@@ -443,6 +448,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </section>
 
