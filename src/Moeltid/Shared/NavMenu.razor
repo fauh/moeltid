@@ -4,8 +4,11 @@
     <div class="nav-actions">
         <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Home</NavLink>
         <NavLink class="nav-link" href="/new">New event</NavLink>
-        <button class="btn-theme-toggle" @onclick="ToggleTheme" aria-label="Toggle dark mode" title="Toggle dark mode">
-            @(_isDark ? "☀️" : "🌙")
+        <button class="btn-theme-toggle" @onclick="ToggleTheme"
+                aria-label="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
+                aria-pressed="@_isDark"
+                title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")">
+            <span aria-hidden="true">@(_isDark ? "☀️" : "🌙")</span>
         </button>
     </div>
 </nav>
