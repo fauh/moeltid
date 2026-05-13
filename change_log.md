@@ -25,7 +25,7 @@ Format: one section per date (or per work session). Within a date, group entries
 
 **Responsive tables.** `ManageEvent` orders table and both `Events` tables wrapped in `table-responsive` for horizontal scroll on narrow viewports.
 
-**Accessibility pass.** Status banners (`role="alert"`); all form inputs already labelled; all buttons have visible text labels.
+**Accessibility improvements.** Buttons have visible text labels, and accessibility work was reviewed for status messaging and form labelling; a full pass is still pending.
 
 **Order deadline enforcement.** Late order submissions (create, update, withdraw) are now blocked server-side in `AttendanceEndpoints.cs` with a `DateTimeOffset.UtcNow > ev.Deadline` guard. `EventPage` and `EditOrder` surface a warning banner and hide the form when the deadline has passed.
 
