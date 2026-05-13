@@ -399,13 +399,10 @@ else
 
         @if (attendances.Count == 0)
         {
-            @{
-                var ordersStillAccepted = !ev.IsClosed && (!ev.OrderDeadlineAt.HasValue || ev.OrderDeadlineAt > DateTimeOffset.UtcNow);
-            }
             <div class="empty-state">
                 <div class="empty-state-icon" aria-hidden="true">🍽️</div>
                 <h3>No orders yet</h3>
-                @if (ordersStillAccepted)
+                @if (!ev.IsClosed && DateTimeOffset.UtcNow <= ev.Deadline)
                 {
                     <p>Share the event link so attendees can register their orders.</p>
                 }
