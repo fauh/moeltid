@@ -26,13 +26,13 @@ else if (ev is null || attendance is null)
 else if (ev.IsClosed)
 {
     <h1>@ev.Title</h1>
-    <div class="alert alert-warning mt-3">This event is closed — orders can no longer be edited.</div>
+    <div class="alert alert-warning mt-3" role="alert">This event is closed — orders can no longer be edited.</div>
     <a href="/e/@Slug" class="btn btn-outline-secondary mt-2" @onclick:preventDefault @onclick="GoToEvent">Back to event</a>
 }
 else if (DateTimeOffset.UtcNow > ev.Deadline)
 {
     <h1>@ev.Title</h1>
-    <div class="alert alert-warning mt-3">The order deadline has passed — orders can no longer be edited.</div>
+    <div class="alert alert-warning mt-3" role="alert">The order deadline has passed — orders can no longer be edited.</div>
     <a href="/e/@Slug" class="btn btn-outline-secondary mt-2" @onclick:preventDefault @onclick="GoToEvent">Back to event</a>
 }
 else
