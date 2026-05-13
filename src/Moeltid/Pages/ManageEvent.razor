@@ -403,7 +403,7 @@ else
                 var ordersStillAccepted = !ev.IsClosed && (!ev.OrderDeadlineAt.HasValue || ev.OrderDeadlineAt > DateTimeOffset.UtcNow);
             }
             <div class="empty-state">
-                <div class="empty-state-icon">🍽️</div>
+                <div class="empty-state-icon" aria-hidden="true">🍽️</div>
                 <h3>No orders yet</h3>
                 @if (ordersStillAccepted)
                 {
