@@ -87,7 +87,7 @@ h1:focus { outline: none; }
 
 a, .btn-link {
     color: var(--color-link);
-    text-decoration-color: transparent;
+    text-decoration-color: currentColor;
     transition: color 0.15s, text-decoration-color 0.15s;
 }
 a:hover, .btn-link:hover {
