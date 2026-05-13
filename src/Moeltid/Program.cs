@@ -2,6 +2,7 @@ using Hangfire;
 using Hangfire.Storage.SQLite;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Moeltid;
 using Moeltid.Data;
 using Moeltid.Endpoints;
 using Moeltid.Services;
