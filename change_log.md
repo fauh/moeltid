@@ -6,6 +6,31 @@ Format: one section per date (or per work session). Within a date, group entries
 
 ---
 
+## 2026-05-13 — Phase 8 closed: polish & visual identity
+
+**Visual identity shipped.** The app now has a custom palette (burgundy `#6B2737`, raspberry red `#C0334D`, light orange `#F4A35A`, with complementary dark purple, greige, and beige) applied via CSS custom properties. Bootstrap is overridden through `--bs-*` variables — no specificity fights.
+
+**Dark mode toggle added.** A 🌙/☀️ button in the top-nav sets `data-theme="dark"` on the `<html>` element, toggling the full palette via a `[data-theme="dark"]` override block in `site.css`.
+
+**Layout replaced.** The Blazor Server scaffold sidebar layout (open-iconic, gradient sidebar, "About" link) was replaced with a minimal sticky top-nav (`NavMenu.razor` + `MainLayout.razor`). The old scoped CSS files were cleared.
+
+**SVG favicon created.** Burgundy background, orange "M" lettermark. PNG kept as fallback.
+
+**Loading, empty, and error states polished.**
+- Shared `LoadingSpinner` component used across `EventPage`, `EditOrder`, `Events`, `ManageEvent`.
+- Styled `.empty-state` blocks (with icon + heading) replace plain `<p class="text-muted">` stubs on `Events`, `EventPage`, and `ManageEvent`.
+- `Routes.razor` `NotFound` fragment replaced with a friendly 🍽️ page.
+- `Error.cshtml` restyled to match the palette; development-only debug text removed.
+- `#blazor-error-ui` and `.blazor-error-boundary` styled to match the palette.
+
+**Responsive tables.** `ManageEvent` orders table and both `Events` tables wrapped in `table-responsive` for horizontal scroll on narrow viewports.
+
+**Accessibility improvements.** Buttons have visible text labels, and accessibility work was reviewed for status messaging and form labelling; a full pass is still pending.
+
+**Order deadline enforcement.** Late order submissions (create, update, withdraw) are now blocked server-side in `AttendanceEndpoints.cs` with a `DateTimeOffset.UtcNow > ev.Deadline` guard. `EventPage` and `EditOrder` surface a warning banner and hide the form when the deadline has passed.
+
+---
+
 ## 2026-05-12 — Phase 7 closed: app deployed
 
 **Live at https://moeltid.fly.dev.** Full ordering flow works end-to-end on the deployed instance after a post-deploy `DATA_DIR` fix (see below).

@@ -25,7 +25,7 @@
 }
 else if (ev is null)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else
 {
@@ -45,7 +45,11 @@ else
 
     @if (ev.IsClosed)
     {
-        <div class="alert alert-warning mt-3">This event is closed — orders are no longer being accepted.</div>
+        <div class="alert alert-warning mt-3" role="alert">This event is closed — orders are no longer being accepted.</div>
+    }
+    else if (DateTimeOffset.UtcNow > ev.Deadline)
+    {
+        <div class="alert alert-warning mt-3" role="alert">The order deadline has passed — orders are no longer being accepted.</div>
     }
     else if (myAttendance is not null)
     {
@@ -169,7 +173,11 @@ else
 
         @if (!displayRows.Any())
         {
-            <p class="text-muted">No orders yet.</p>
+            <div class="empty-state">
+                <div class="empty-state-icon" aria-hidden="true">🍽️</div>
+                <h3>No orders yet</h3>
+                <p>Be the first to place an order.</p>
+            </div>
         }
         else
         {

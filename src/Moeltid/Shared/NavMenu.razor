@@ -1,34 +1,27 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Moeltid</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
+<nav class="app-topnav" aria-label="Main navigation">
+    <a class="navbar-brand" href="/">Måltid</a>
+
+    <div class="nav-actions">
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Home</NavLink>
+        <NavLink class="nav-link" href="/new">New event</NavLink>
+        <button class="btn-theme-toggle" @onclick="ToggleTheme"
+                aria-label="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
+                aria-pressed="@_isDark"
+                title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")">
+            <span aria-hidden="true">@(_isDark ? "☀️" : "🌙")</span>
         </button>
     </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="oi oi-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="new">
-                <span class="oi oi-plus" aria-hidden="true"></span> New event
-            </NavLink>
-        </div>
-    </nav>
-</div>
+</nav>
 
 @code {
-    private bool collapseNavMenu = true;
+    private bool _isDark;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
+    private async Task ToggleTheme()
     {
-        collapseNavMenu = !collapseNavMenu;
+        _isDark = !_isDark;
+        await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-theme", _isDark ? "dark" : "light");
     }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 }
+

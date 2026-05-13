@@ -9,16 +9,21 @@
 
 @if (_loading)
 {
-    <p>Loading…</p>
+    <LoadingSpinner />
 }
 else if (_grouped is null || (_grouped.Ongoing.Count == 0 && _grouped.Past.Count == 0))
 {
-    <p class="text-muted">No events yet. <a href="/new">Create one!</a></p>
+    <div class="empty-state">
+        <div class="empty-state-icon" aria-hidden="true">📅</div>
+        <h3>No events yet</h3>
+        <p><a href="/new">Create your first event</a> to get started.</p>
+    </div>
 }
 else
 {
     @if (_grouped.Ongoing.Count > 0)
     {
+        <div class="table-responsive">
         <table class="table table-sm table-hover">
             <thead>
                 <tr>
@@ -38,6 +43,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
     }
     else
     {
@@ -50,6 +56,7 @@ else
             <summary class="text-muted" style="cursor:pointer">
                 Past events (@_grouped.Past.Count)
             </summary>
+            <div class="table-responsive">
             <table class="table table-sm table-hover mt-2">
                 <thead>
                     <tr>
@@ -69,6 +76,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         </details>
     }
 }
